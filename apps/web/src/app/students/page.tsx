@@ -1,237 +1,252 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Users,
-  UserCheck,
   GraduationCap,
-  FileCheck2,
-  Phone,
-  Mail,
-  Calendar,
-  Layers,
-  ArrowUpRight,
-  ShieldCheck,
-  Clock,
+  Stethoscope,
+  Plus,
+  ArrowRight,
+  Filter,
   CheckCircle,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
-import { StatsCard } from '../../components/StatsCard';
+import { DataTable, Column } from '../../components/tables/DataTable';
+import { Button } from '../../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { StudentAdmissionModal } from '../../features/students/components/StudentAdmissionModal';
+import { fetchStudents } from '../../features/students/services/students.api';
+import { StudentSummaryItem, StudentStatus } from '../../features/students/types/students.types';
 
 export default function StudentsPage() {
-  const [activeTab, setActiveTab] = useState<'students' | 'admissions' | 'documents'>('students');
+  const router = useRouter();
+  const [students, setStudents] = useState<StudentSummaryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAdmissionOpen, setIsAdmissionOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
 
-  const students = [
-    {
-      id: 'STD-2026-0001',
-      name: 'Muhammad Maaz',
-      email: 'maaz@nmc.edu.pk',
-      phone: '+92 300 1234567',
-      program: 'BSN Generic (4 Years)',
-      semester: 'Semester 1',
-      section: 'BSN-Y1-SecA',
-      status: 'ACTIVE',
-      guardian: 'Abdul Rashid (Father)',
-      guardianPhone: '+92 300 9988776',
-    },
-    {
-      id: 'STD-2026-0002',
-      name: 'Ayesha Bibi',
-      email: 'ayesha.bibi@nmc.edu.pk',
-      phone: '+92 301 4455667',
-      program: 'BSN Generic (4 Years)',
-      semester: 'Semester 1',
-      section: 'BSN-Y1-SecA',
-      status: 'ACTIVE',
-      guardian: 'Tariq Mehmood (Father)',
-      guardianPhone: '+92 302 5566778',
-    },
-    {
-      id: 'STD-2025-0144',
-      name: 'Zainab Fatima',
-      email: 'zainab.f@nmc.edu.pk',
-      phone: '+92 333 8899001',
-      program: 'Post-RN BSN (2 Years)',
-      semester: 'Semester 3',
-      section: 'PRN-Y2',
-      status: 'ACTIVE',
-      guardian: 'Farooq Ahmed (Husband)',
-      guardianPhone: '+92 334 1122334',
-    },
-    {
-      id: 'STD-2024-0089',
-      name: 'Hamza Tariq',
-      email: 'hamza.t@nmc.edu.pk',
-      phone: '+92 345 6677889',
-      program: 'Doctor of Physical Therapy (DPT)',
-      semester: 'Semester 5',
-      section: 'DPT-Y3',
-      status: 'ACTIVE',
-      guardian: 'Tariq Javed (Father)',
-      guardianPhone: '+92 300 3344556',
-    },
-  ];
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetchStudents();
+      setStudents(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const admissions = [
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const filteredStudents =
+    selectedStatus === 'ALL'
+      ? students
+      : students.filter((s) => s.status === selectedStatus);
+
+  const columns: Column<StudentSummaryItem>[] = [
     {
-      appNo: 'APP-2026-0012',
-      name: 'Sana Malik',
-      email: 'sana.malik99@gmail.com',
-      phone: '+92 300 5544332',
-      program: 'BSN Generic',
-      qualification: 'FSc Pre-Medical (89.2%)',
-      status: 'APPROVED',
-      appliedAt: '2026-08-20',
-      docsCount: 4,
+      header: 'Reg ID',
+      accessorKey: 'studentId',
+      sortable: true,
+      cell: (s) => (
+        <span className="font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+          {s.studentId}
+        </span>
+      ),
     },
     {
-      appNo: 'APP-2026-0013',
-      name: 'Bilal Khan',
-      email: 'bilal.k@gmail.com',
-      phone: '+92 312 7766554',
-      program: 'BS Medical Laboratory Technology',
-      qualification: 'FSc Pre-Medical (78.5%)',
-      status: 'UNDER_REVIEW',
-      appliedAt: '2026-08-22',
-      docsCount: 3,
+      header: 'Student Name',
+      accessorKey: 'firstName',
+      sortable: true,
+      cell: (s) => (
+        <div>
+          <p className="font-bold text-slate-100">
+            {s.firstName} {s.lastName}
+          </p>
+          <p className="text-xs text-slate-400">{s.email}</p>
+        </div>
+      ),
     },
     {
-      appNo: 'APP-2026-0014',
-      name: 'Mariam Ali',
-      email: 'mariam.ali@yahoo.com',
-      phone: '+92 321 9988771',
-      program: 'Post-RN BSN',
-      qualification: 'General Nursing Diploma (3Y)',
-      status: 'PENDING',
-      appliedAt: '2026-08-23',
-      docsCount: 5,
+      header: 'Program / Major',
+      accessorKey: 'program',
+      sortable: true,
+      cell: (s) => <span className="text-slate-300 font-medium">{s.program?.name}</span>,
+    },
+    {
+      header: 'Level',
+      accessorKey: 'currentSemester',
+      sortable: true,
+      cell: (s) => <span className="font-semibold text-slate-300">Semester {s.currentSemester || 6}</span>,
+    },
+    {
+      header: 'CGPA',
+      accessorKey: 'cgpa',
+      sortable: true,
+      cell: (s) => (
+        <span className="font-bold text-emerald-400 font-mono">
+          {s.cgpa ? s.cgpa.toFixed(2) : '3.80'}
+        </span>
+      ),
+    },
+    {
+      header: 'Status',
+      accessorKey: 'status',
+      cell: (s) => (
+        <Badge
+          variant={
+            s.status === 'ACTIVE'
+              ? 'success'
+              : s.status === 'GRADUATED'
+              ? 'purple'
+              : 'warning'
+          }
+          size="sm"
+          dot
+        >
+          {s.status}
+        </Badge>
+      ),
+    },
+    {
+      header: 'Action',
+      cell: (s) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push(`/students/${s.id}`)}
+          rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+        >
+          360° Profile
+        </Button>
+      ),
     },
   ];
 
   return (
-    <div>
-      <div className="page-header">
-        <h2>Student Lifecycle, Admissions & Biographic Profiles</h2>
-        <p>Manage prospective admissions applications, student registration, parent relationships, and semester cohorts.</p>
-      </div>
-
-      <div className="stats-grid">
-        <StatsCard label="Active Students" value="842 Enrolled" icon={Users} iconBg="rgba(59, 130, 246, 0.15)" iconColor="#60a5fa" />
-        <StatsCard label="Pending Applications" value="28 Under Review" icon={Clock} iconBg="rgba(245, 158, 11, 0.15)" iconColor="#fbbf24" />
-        <StatsCard label="Verified Documents" value="3,120 Files" icon={FileCheck2} iconBg="rgba(16, 185, 129, 0.15)" iconColor="#34d399" />
-        <StatsCard label="Graduated Alumni" value="450 Nurses" icon={GraduationCap} iconBg="rgba(139, 92, 246, 0.15)" iconColor="#a78bfa" />
-      </div>
-
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-        <button
-          onClick={() => setActiveTab('students')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'students' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'students' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Enrolled Students ({students.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('admissions')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'admissions' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'admissions' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Admissions Pipeline ({admissions.length})
-        </button>
-      </div>
-
-      {activeTab === 'students' && (
-        <div className="table-container">
-          <table className="glass-table">
-            <thead>
-              <tr>
-                <th>Student ID</th>
-                <th>Student Name</th>
-                <th>Degree Program</th>
-                <th>Current Semester</th>
-                <th>Section</th>
-                <th>Parent / Emergency Contact</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((s) => (
-                <tr key={s.id}>
-                  <td><span className="code-pill">{s.id}</span></td>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{s.name}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{s.email}</div>
-                  </td>
-                  <td><span style={{ fontSize: '13px' }}>{s.program}</span></td>
-                  <td style={{ fontWeight: 600, color: '#60a5fa' }}>{s.semester}</td>
-                  <td><span className="badge-pill primary">{s.section}</span></td>
-                  <td>
-                    <div style={{ fontSize: '12px', fontWeight: 500 }}>{s.guardian}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{s.guardianPhone}</div>
-                  </td>
-                  <td><span className="badge-pill success">{s.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header & Quick Action */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-white tracking-tight">
+            Student Lifecycle Directory
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Manage student registrations, academic cohorts, and complete 360° profiles
+          </p>
         </div>
-      )}
 
-      {activeTab === 'admissions' && (
-        <div className="table-container">
-          <table className="glass-table">
-            <thead>
-              <tr>
-                <th>Application No</th>
-                <th>Applicant Name</th>
-                <th>Applied Program</th>
-                <th>Previous Qualification</th>
-                <th>Uploaded Docs</th>
-                <th>Application Date</th>
-                <th>Review Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {admissions.map((a) => (
-                <tr key={a.appNo}>
-                  <td><span className="code-pill">{a.appNo}</span></td>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{a.name}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{a.phone}</div>
-                  </td>
-                  <td style={{ fontWeight: 600 }}>{a.program}</td>
-                  <td><span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{a.qualification}</span></td>
-                  <td>
-                    <span className="badge-pill primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <FileCheck2 size={12} /> {a.docsCount} Docs
-                    </span>
-                  </td>
-                  <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{a.appliedAt}</td>
-                  <td>
-                    <span className={`badge-pill ${a.status === 'APPROVED' ? 'success' : a.status === 'UNDER_REVIEW' ? 'warning' : 'primary'}`}>
-                      {a.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => setIsAdmissionOpen(true)}
+          leftIcon={<Plus className="w-4 h-4" />}
+        >
+          Admit New Student
+        </Button>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <Card hoverEffect className="p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Total Enrolled Students
+              </span>
+              <h3 className="text-2xl font-black text-white mt-1">450</h3>
+            </div>
+            <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+              <Users className="w-5 h-5" />
+            </div>
+          </div>
+          <p className="text-xs text-emerald-400 mt-3 flex items-center gap-1 font-medium">
+            <CheckCircle className="w-3.5 h-3.5" />
+            98.5% Active Enrollment
+          </p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Generic BSN Degree (4-Yr)
+              </span>
+              <h3 className="text-2xl font-black text-white mt-1">360</h3>
+            </div>
+            <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 mt-3 font-medium">8 Co-ed Academic Semesters</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Active Clinical Practicum
+              </span>
+              <h3 className="text-2xl font-black text-white mt-1">184</h3>
+            </div>
+            <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <Stethoscope className="w-5 h-5" />
+            </div>
+          </div>
+          <p className="text-xs text-purple-400 mt-3 font-medium">Hospital Wards Allotted</p>
+        </Card>
+      </div>
+
+      {/* Directory Table with Status Filter */}
+      <Card className="p-6 space-y-4">
+        <CardHeader className="pb-2">
+          <div>
+            <CardTitle className="text-lg">Student Roster</CardTitle>
+            <CardDescription>
+              Click any student row to view full 360-degree academic & clinical history
+            </CardDescription>
+          </div>
+
+          {/* Filter Status Pills */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/60 border border-slate-800">
+            {['ALL', 'ACTIVE', 'GRADUATED'].map((st) => (
+              <button
+                key={st}
+                onClick={() => setSelectedStatus(st)}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  selectedStatus === st
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {st}
+              </button>
+            ))}
+          </div>
+        </CardHeader>
+
+        <DataTable
+          columns={columns}
+          data={filteredStudents}
+          isLoading={isLoading}
+          searchPlaceholder="Search student by name, ID, or program..."
+          pageSize={10}
+          onRowClick={(s) => router.push(`/students/${s.id}`)}
+        />
+      </Card>
+
+      {/* Admission Modal */}
+      <StudentAdmissionModal
+        isOpen={isAdmissionOpen}
+        onClose={() => setIsAdmissionOpen(false)}
+        onSuccess={loadData}
+      />
     </div>
   );
 }
