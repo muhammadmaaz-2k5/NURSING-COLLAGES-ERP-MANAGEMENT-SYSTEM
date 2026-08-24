@@ -1,370 +1,466 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  Building,
+  Activity,
   Bed,
   Users,
   Calendar,
-  Stethoscope,
-  FileText,
-  Activity,
+  Clock,
   Plus,
   ArrowRight,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  Pill,
-  Search,
+  ShieldCheck,
+  Stethoscope,
+  Building2,
+  FileText,
 } from 'lucide-react';
-import { StatsCard } from '../../components/StatsCard';
+import { DataTable, Column } from '../../components/tables/DataTable';
+import { Button } from '../../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { WardOccupancyGrid } from '../../features/hospital/components/WardOccupancyGrid';
+import { PatientRegistrationModal } from '../../features/hospital/components/PatientRegistrationModal';
+import { AdmissionModal } from '../../features/hospital/components/AdmissionModal';
+import { BedTransferModal } from '../../features/hospital/components/BedTransferModal';
+import { DischargeModal } from '../../features/hospital/components/DischargeModal';
+import { OPDTokenModal } from '../../features/hospital/components/OPDTokenModal';
+import { ConsultationModal } from '../../features/hospital/components/ConsultationModal';
+import {
+  fetchHospitalProfile,
+  fetchHospitalWards,
+  fetchPatients,
+  fetchAppointments,
+} from '../../features/hospital/services/hospital.api';
+import {
+  HospitalProfile,
+  HospitalWard,
+  HospitalBed,
+  Patient,
+  Appointment,
+} from '../../features/hospital/types/hospital.types';
+import { formatDate } from '../../lib/utils';
+
+type HospitalTab = 'wards' | 'opd' | 'patients' | 'consultations';
 
 export default function HospitalPage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'patients' | 'opd' | 'ipd' | 'prescriptions'>('overview');
-  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<HospitalTab>('wards');
+  const [profile, setProfile] = useState<HospitalProfile | null>(null);
+  const [wards, setWards] = useState<HospitalWard[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const metrics = {
-    totalBeds: 84,
-    occupiedBeds: 62,
-    availableBeds: 22,
-    occupancyRate: '73.8%',
-    activeDoctors: 28,
-    todayOpdVisits: 146,
-    currentInpatients: 62,
+  // Modals state
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+  const [isAdmissionModalOpen, setIsAdmissionModalOpen] = useState(false);
+  const [isOPDModalOpen, setIsOPDModalOpen] = useState(false);
+  const [isConsultModalOpen, setIsConsultModalOpen] = useState(false);
+  const [selectedBed, setSelectedBed] = useState<HospitalBed | null>(null);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isDischargeModalOpen, setIsDischargeModalOpen] = useState(false);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [profRes, wRes, patRes, appRes] = await Promise.all([
+        fetchHospitalProfile(),
+        fetchHospitalWards(),
+        fetchPatients(),
+        fetchAppointments(),
+      ]);
+      setProfile(profRes);
+      setWards(wRes);
+      setPatients(patRes.data);
+      setAppointments(appRes);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const wards = [
-    { name: 'Female Surgical Ward', type: 'SURGERY', floor: '2nd Floor', totalBeds: 24, occupied: 18, available: 6 },
-    { name: 'Medical Intensive Care Unit (ICU)', type: 'ICU', floor: '1st Floor', totalBeds: 12, occupied: 10, available: 2 },
-    { name: 'Pediatric General Care', type: 'PEDIATRICS', floor: '3rd Floor', totalBeds: 20, occupied: 14, available: 6 },
-    { name: 'Gynecology & Maternity Ward', type: 'GYNECOLOGY', floor: '2nd Floor', totalBeds: 18, occupied: 14, available: 4 },
-    { name: 'Cardiology HDU & CCU', type: 'MEDICINE', floor: '1st Floor', totalBeds: 10, occupied: 6, available: 4 },
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const patientColumns: Column<Patient>[] = [
+    {
+      header: 'MRN & Patient Name',
+      accessorKey: 'firstName',
+      sortable: true,
+      cell: (p) => (
+        <div className="flex items-center gap-3">
+          <img
+            src={p.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'}
+            alt={p.firstName}
+            className="w-8 h-8 rounded-lg object-cover border border-slate-700 shrink-0"
+          />
+          <div>
+            <p className="font-bold text-slate-100">
+              {p.firstName} {p.lastName || ''}
+            </p>
+            <span className="font-mono text-blue-400 text-xs font-semibold">{p.patientNo}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Demographics',
+      sortable: true,
+      cell: (p) => (
+        <div className="text-xs text-slate-300">
+          <p>{p.gender || 'Unknown'} • {p.bloodGroup || '—'}</p>
+          <span className="text-slate-500 font-mono">{p.phone || '—'}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'City / Location',
+      accessorKey: 'city',
+      sortable: true,
+      cell: (p) => <span className="text-slate-400 text-xs">{p.city || 'Islamabad'}</span>,
+    },
+    {
+      header: 'Allergies / Flags',
+      accessorKey: 'allergies',
+      cell: (p) => (
+        <span className={`text-xs ${p.allergies ? 'text-amber-400 font-semibold' : 'text-slate-500'}`}>
+          {p.allergies || 'None recorded'}
+        </span>
+      ),
+    },
+    {
+      header: 'Status',
+      accessorKey: 'status',
+      cell: (p) => (
+        <Badge variant={p.status === 'ADMITTED' ? 'purple' : 'success'} size="sm" dot>
+          {p.status}
+        </Badge>
+      ),
+    },
+    {
+      header: 'Action',
+      cell: (p) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push(`/hospital/patients/${p.id}`)}
+          rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+        >
+          EMR Chart
+        </Button>
+      ),
+    },
   ];
 
-  const patients = [
-    { id: '1', mrn: 'MRN-2026-00101', name: 'Zubair Khan', age: 45, gender: 'Male', phone: '+92-300-1122334', bloodGroup: 'B+', status: 'ADMITTED', ward: 'Cardiology HDU (Bed 302)' },
-    { id: '2', mrn: 'MRN-2026-00102', name: 'Salma Begum', age: 52, gender: 'Female', phone: '+92-333-5566778', bloodGroup: 'O+', status: 'OPD_VISIT', ward: 'Outpatient' },
-    { id: '3', mrn: 'MRN-2026-00103', name: 'Hamza Ali', age: 29, gender: 'Male', phone: '+92-321-9988776', bloodGroup: 'A+', status: 'ADMITTED', ward: 'Female Surgical (Bed 208)' },
-    { id: '4', mrn: 'MRN-2026-00104', name: 'Amina Bibi', age: 34, gender: 'Female', phone: '+92-345-4433221', bloodGroup: 'AB+', status: 'DISCHARGED', ward: 'Discharged' },
-  ];
-
-  const appointments = [
-    { id: 'APP-101', token: 1, patient: 'Salma Begum', mrn: 'MRN-2026-00102', doctor: 'Dr. Sarah Tariq', dept: 'Cardiology OPD', time: '10:00 AM', status: 'IN_CONSULTATION' },
-    { id: 'APP-102', token: 2, patient: 'Kashif Mehmood', mrn: 'MRN-2026-00105', doctor: 'Dr. Tariq Mahmood', dept: 'General Medicine', time: '10:30 AM', status: 'SCHEDULED' },
-    { id: 'APP-103', token: 3, patient: 'Noreen Akhtar', mrn: 'MRN-2026-00106', doctor: 'Dr. Nusrat Parveen', dept: 'Gynecology', time: '11:00 AM', status: 'SCHEDULED' },
-  ];
-
-  const prescriptions = [
-    { id: 'RX-2026-0091', patient: 'Zubair Khan', doctor: 'Dr. Sarah Tariq', date: '2026-08-24', diagnosis: 'Hypertension & Angina', medicines: ['Amlodipine 5mg OD', 'Aspirin 75mg OD', 'Atorvastatin 20mg HS'] },
-    { id: 'RX-2026-0092', patient: 'Salma Begum', doctor: 'Dr. Nusrat Parveen', date: '2026-08-24', diagnosis: 'Acute Pharyngitis', medicines: ['Augmentin 625mg BD', 'Panadol 500mg TDS', 'Loratadine 10mg OD'] },
+  const appointmentColumns: Column<Appointment>[] = [
+    {
+      header: 'Token #',
+      accessorKey: 'tokenNumber',
+      sortable: true,
+      cell: (a) => (
+        <span className="font-mono font-black text-sm text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/20">
+          #{a.tokenNumber}
+        </span>
+      ),
+    },
+    {
+      header: 'Patient Details',
+      accessorKey: 'patientName',
+      sortable: true,
+      cell: (a) => (
+        <div>
+          <p className="font-bold text-slate-100">{a.patientName}</p>
+          <span className="font-mono text-xs text-slate-400">{a.patientNo}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Doctor & Department',
+      accessorKey: 'doctorName',
+      sortable: true,
+      cell: (a) => (
+        <div>
+          <p className="font-semibold text-slate-200">{a.doctorName}</p>
+          <span className="text-xs text-purple-400">{a.departmentName}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Reason / Complaint',
+      accessorKey: 'reason',
+      cell: (a) => <span className="text-xs text-slate-300">{a.reason || 'General Checkup'}</span>,
+    },
+    {
+      header: 'Queue Status',
+      accessorKey: 'status',
+      cell: (a) => (
+        <Badge
+          variant={
+            a.status === 'IN_CONSULTATION'
+              ? 'purple'
+              : a.status === 'WAITING'
+              ? 'warning'
+              : 'success'
+          }
+          size="sm"
+          dot
+        >
+          {a.status}
+        </Badge>
+      ),
+    },
   ];
 
   return (
-    <div>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2>Hospital Operations & Clinical Care</h2>
-          <p>Teaching hospital OPD clinics, IPD inpatient ward occupancy, doctor rosters, e-prescriptions, and lab investigation workflows.</p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <span className="code-pill" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '6px 14px', borderRadius: '20px', fontWeight: 600, fontSize: '13px' }}>
-            ● Hospital Module Active
-          </span>
-        </div>
-      </div>
-
-      <div className="stats-grid">
-        <StatsCard label="Total Inpatient Beds" value={`${metrics.totalBeds} Beds`} icon={Bed} iconBg="rgba(59, 130, 246, 0.15)" iconColor="#60a5fa" />
-        <StatsCard label="Occupancy Rate" value={metrics.occupancyRate} icon={Activity} iconBg="rgba(244, 63, 94, 0.15)" iconColor="#f43f5e" />
-        <StatsCard label="Today OPD Visits" value={`${metrics.todayOpdVisits} Patients`} icon={Users} iconBg="rgba(16, 185, 129, 0.15)" iconColor="#34d399" />
-        <StatsCard label="Active Inpatients" value={`${metrics.currentInpatients} Admitted`} icon={Stethoscope} iconBg="rgba(245, 158, 11, 0.15)" iconColor="#fbbf24" />
-      </div>
-
-      {/* Tabs Bar */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', overflowX: 'auto' }}>
-        {[
-          { id: 'overview', label: 'Ward & Bed Occupancy' },
-          { id: 'patients', label: 'Patient Medical Registry' },
-          { id: 'opd', label: 'OPD Appointments & Queue' },
-          { id: 'ipd', label: 'IPD Inpatient Admissions' },
-          { id: 'prescriptions', label: 'E-Prescriptions & Rx' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            style={{
-              background: activeTab === tab.id ? 'var(--accent-primary-gradient)' : 'rgba(255, 255, 255, 0.03)',
-              border: activeTab === tab.id ? 'none' : '1px solid var(--border-color)',
-              color: activeTab === tab.id ? '#fff' : 'var(--text-secondary)',
-              fontWeight: 600,
-              fontSize: '13px',
-              cursor: 'pointer',
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-md)',
-              transition: 'all 0.2s',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* 1. Ward & Bed Occupancy */}
-      {activeTab === 'overview' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-          {wards.map((ward) => (
-            <div key={ward.name} className="module-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-                <div className="module-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-                  <Bed size={22} color="var(--accent-primary)" />
-                </div>
-                <span className="code-pill">{ward.floor}</span>
-              </div>
-              <h4 style={{ fontSize: '16px', marginBottom: '6px' }}>{ward.name}</h4>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '16px' }}>
-                Department: {ward.type}
-              </span>
-
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px', borderRadius: 'var(--radius-md)', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Bed Availability</span>
-                  <span style={{ fontWeight: 700, color: '#34d399' }}>{ward.available} Available</span>
-                </div>
-                <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${(ward.occupied / ward.totalBeds) * 100}%`,
-                      height: '100%',
-                      background: 'linear-gradient(90deg, #3b82f6, #f43f5e)',
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                <span>Total: <strong>{ward.totalBeds}</strong></span>
-                <span>Occupied: <strong style={{ color: '#f43f5e' }}>{ward.occupied}</strong></span>
-                <span>Rate: <strong>{Math.round((ward.occupied / ward.totalBeds) * 100)}%</strong></span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 2. Patient Medical Registry */}
-      {activeTab === 'patients' && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-          <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Registered Patients (Electronic Health Records)</h3>
-            <div style={{ position: 'relative', width: '280px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
-              <input
-                type="text"
-                placeholder="Search MRN, Name, Phone..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid var(--border-color)',
-                  color: '#fff',
-                  padding: '8px 12px 8px 36px',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: '13px',
-                }}
-              />
-            </div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              Hospital, OPD, IPD & Bed Management
+            </h1>
+            <Badge variant="primary" size="sm">
+              <ShieldCheck className="w-3.5 h-3.5 mr-1 text-blue-400" />
+              Clinical EMR & Inpatient Core
+            </Badge>
           </div>
-
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>MRN Number</th>
-                <th>Patient Name</th>
-                <th>Demographics</th>
-                <th>Blood Group</th>
-                <th>Phone Contact</th>
-                <th>Care Status</th>
-                <th>Current Location</th>
-              </tr>
-            </thead>
-            <tbody>
-              {patients.map((p) => (
-                <tr key={p.id}>
-                  <td><span className="code-pill">{p.mrn}</span></td>
-                  <td><strong style={{ color: '#fff' }}>{p.name}</strong></td>
-                  <td>{p.age} Yrs / {p.gender}</td>
-                  <td><span style={{ color: '#f43f5e', fontWeight: 600 }}>{p.bloodGroup}</span></td>
-                  <td>{p.phone}</td>
-                  <td>
-                    <span
-                      style={{
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        background: p.status === 'ADMITTED' ? 'rgba(245, 158, 11, 0.15)' : p.status === 'OPD_VISIT' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                        color: p.status === 'ADMITTED' ? '#fbbf24' : p.status === 'OPD_VISIT' ? '#60a5fa' : '#34d399',
-                      }}
-                    >
-                      {p.status}
-                    </span>
-                  </td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{p.ward}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* 3. OPD Appointments */}
-      {activeTab === 'opd' && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Today OPD Consultation Queue</h3>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Sequential patient token stream and doctor assignments</p>
-            </div>
-            <button
-              style={{
-                background: 'var(--accent-primary-gradient)',
-                color: '#fff',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: 'var(--radius-md)',
-                fontWeight: 600,
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
-            >
-              + Book New OPD Appointment
-            </button>
-          </div>
-
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Token #</th>
-                <th>Patient Details</th>
-                <th>Assigned Doctor</th>
-                <th>Department</th>
-                <th>Schedule</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {appointments.map((a) => (
-                <tr key={a.id}>
-                  <td><span className="code-pill" style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', fontWeight: 700 }}>Token #{a.token}</span></td>
-                  <td>
-                    <div>
-                      <strong style={{ color: '#fff' }}>{a.patient}</strong>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{a.mrn}</div>
-                    </div>
-                  </td>
-                  <td>{a.doctor}</td>
-                  <td>{a.dept}</td>
-                  <td><div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={14} color="var(--text-muted)" /> {a.time}</div></td>
-                  <td>
-                    <span
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        background: a.status === 'IN_CONSULTATION' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                        color: a.status === 'IN_CONSULTATION' ? '#34d399' : '#60a5fa',
-                      }}
-                    >
-                      {a.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* 4. IPD Inpatient Admissions */}
-      {activeTab === 'ipd' && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>Inpatient (IPD) Admission Management</h3>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-            Bed allocation engine protected with strict interactive transaction locks ensuring zero double-occupancy.
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Manage outpatient token queues, inpatient admissions, real-time visual bed matrices, and electronic medical records.
           </p>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span className="code-pill">BED-SURG-208</span>
-                <span style={{ color: '#fbbf24', fontSize: '12px', fontWeight: 600 }}>Occupied</span>
-              </div>
-              <h4 style={{ fontSize: '14px', marginBottom: '4px' }}>Hamza Ali (MRN-2026-00103)</h4>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Admitted: 2026-08-23 (Acute Appendicitis)</p>
-              <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-                <button style={{ padding: '4px 10px', fontSize: '12px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Transfer Bed</button>
-                <button style={{ padding: '4px 10px', fontSize: '12px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Discharge</button>
-              </div>
-            </div>
-
-            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span className="code-pill">BED-ICU-102</span>
-                <span style={{ color: '#fbbf24', fontSize: '12px', fontWeight: 600 }}>Occupied</span>
-              </div>
-              <h4 style={{ fontSize: '14px', marginBottom: '4px' }}>Zubair Khan (MRN-2026-00101)</h4>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Admitted: 2026-08-24 (Post-Angiography Care)</p>
-              <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-                <button style={{ padding: '4px 10px', fontSize: '12px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Transfer Bed</button>
-                <button style={{ padding: '4px 10px', fontSize: '12px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Discharge</button>
-              </div>
-            </div>
-
-            <div style={{ background: 'rgba(16, 185, 129, 0.05)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px dashed rgba(16, 185, 129, 0.3)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span className="code-pill" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399' }}>BED-ICU-103</span>
-                <span style={{ color: '#34d399', fontSize: '12px', fontWeight: 600 }}>Available</span>
-              </div>
-              <h4 style={{ fontSize: '14px', marginBottom: '4px', color: 'var(--text-secondary)' }}>Empty ICU Bed</h4>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Ready for admission</p>
-              <div style={{ marginTop: '12px' }}>
-                <button style={{ padding: '6px 12px', fontSize: '12px', background: 'var(--accent-primary-gradient)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}>+ Admit Patient Here</button>
-              </div>
-            </div>
-          </div>
         </div>
+
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsPatientModalOpen(true)}
+            leftIcon={<Plus className="w-4 h-4" />}
+          >
+            Register Patient
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsOPDModalOpen(true)}
+            leftIcon={<Clock className="w-4 h-4" />}
+          >
+            Issue OPD Token
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setSelectedBed(null);
+              setIsAdmissionModalOpen(true);
+            }}
+            leftIcon={<Bed className="w-4 h-4" />}
+          >
+            Admit Patient
+          </Button>
+        </div>
+      </div>
+
+      {/* KPI Stats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Total Patients Registered
+          </span>
+          <h3 className="text-2xl font-black text-white mt-1">
+            {profile?.totalPatients || '2,450'}
+          </h3>
+          <p className="text-xs text-blue-400 mt-2 font-medium">Electronic Medical Records</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            OPD Tokens Today
+          </span>
+          <h3 className="text-2xl font-black text-amber-400 mt-1">
+            {profile?.opdTodayCount || 142}
+          </h3>
+          <p className="text-xs text-amber-300 mt-2 font-medium">Active Outpatient Flow</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            IPD Inpatient Admissions
+          </span>
+          <h3 className="text-2xl font-black text-rose-400 mt-1">
+            {profile?.activeAdmissionsCount || 86}
+          </h3>
+          <p className="text-xs text-rose-300 mt-2 font-medium">Occupying Ward Beds</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Bed Occupancy Rate
+          </span>
+          <h3 className="text-2xl font-black text-emerald-400 mt-1">
+            {profile?.occupancyRate || 71.6}%
+          </h3>
+          <p className="text-xs text-emerald-300 mt-2 font-medium">
+            {profile?.availableBeds || 34} Beds Currently Available
+          </p>
+        </Card>
+      </div>
+
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
+        {[
+          { id: 'wards' as const, label: 'Wards & Bed Occupancy Matrix', icon: Bed },
+          { id: 'opd' as const, label: 'OPD Token Queue', icon: Clock, count: appointments.length },
+          { id: 'patients' as const, label: 'Patient EMR Directory', icon: Users, count: patients.length },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span
+                  className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Panels */}
+
+      {/* 1. WARDS & BED OCCUPANCY MATRIX */}
+      {activeTab === 'wards' && (
+        <WardOccupancyGrid
+          wards={wards}
+          onAdmitToBed={(bed) => {
+            setSelectedBed(bed);
+            setIsAdmissionModalOpen(true);
+          }}
+          onTransferBed={(bed) => {
+            setSelectedBed(bed);
+            setIsTransferModalOpen(true);
+          }}
+          onDischargeBed={(bed) => {
+            setSelectedBed(bed);
+            setIsDischargeModalOpen(true);
+          }}
+        />
       )}
 
-      {/* 5. Prescriptions */}
-      {activeTab === 'prescriptions' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
-          {prescriptions.map((rx) => (
-            <div key={rx.id} className="module-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <span className="code-pill" style={{ color: '#38bdf8' }}>{rx.id}</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{rx.date}</span>
-              </div>
-              <h4 style={{ fontSize: '16px', marginBottom: '4px' }}>{rx.patient}</h4>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '12px' }}>
-                Prescribed by: {rx.doctor}
-              </span>
-              <div style={{ background: 'rgba(59, 130, 246, 0.08)', padding: '10px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', fontSize: '13px' }}>
-                <strong>Diagnosis:</strong> {rx.diagnosis}
-              </div>
-              <div>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Medications:</span>
-                <ul style={{ paddingLeft: '16px', fontSize: '13px', lineHeight: 1.6 }}>
-                  {rx.medicines.map((m, idx) => (
-                    <li key={idx} style={{ color: '#fff' }}>{m}</li>
-                  ))}
-                </ul>
-              </div>
+      {/* 2. OPD TOKEN QUEUE */}
+      {activeTab === 'opd' && (
+        <Card className="p-6 space-y-4">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-lg">Live OPD Consultation Roster</CardTitle>
+              <CardDescription>
+                Real-time patient queue for active clinical consultation chambers
+              </CardDescription>
             </div>
-          ))}
-        </div>
+
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsConsultModalOpen(true)}
+              leftIcon={<Stethoscope className="w-4 h-4" />}
+            >
+              Record Doctor Consultation
+            </Button>
+          </CardHeader>
+
+          <DataTable
+            columns={appointmentColumns}
+            data={appointments}
+            isLoading={isLoading}
+            searchPlaceholder="Search token #, patient name, or doctor..."
+            pageSize={10}
+          />
+        </Card>
       )}
+
+      {/* 3. PATIENT DIRECTORY */}
+      {activeTab === 'patients' && (
+        <Card className="p-6 space-y-4">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-lg">Electronic Medical Records (EMR) Directory</CardTitle>
+              <CardDescription>
+                Search patients by MRN, name, phone, or clinical allergy flags
+              </CardDescription>
+            </div>
+          </CardHeader>
+
+          <DataTable
+            columns={patientColumns}
+            data={patients}
+            isLoading={isLoading}
+            searchPlaceholder="Search by MRN, patient name, or contact..."
+            pageSize={10}
+            onRowClick={(p) => router.push(`/hospital/patients/${p.id}`)}
+          />
+        </Card>
+      )}
+
+      {/* Modals */}
+      <PatientRegistrationModal
+        isOpen={isPatientModalOpen}
+        onClose={() => setIsPatientModalOpen(false)}
+        onSuccess={loadData}
+      />
+
+      <AdmissionModal
+        isOpen={isAdmissionModalOpen}
+        onClose={() => setIsAdmissionModalOpen(false)}
+        selectedBed={selectedBed}
+        onSuccess={loadData}
+      />
+
+      <BedTransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        bed={selectedBed}
+        onSuccess={loadData}
+      />
+
+      <DischargeModal
+        isOpen={isDischargeModalOpen}
+        onClose={() => setIsDischargeModalOpen(false)}
+        bed={selectedBed}
+        onSuccess={loadData}
+      />
+
+      <OPDTokenModal
+        isOpen={isOPDModalOpen}
+        onClose={() => setIsOPDModalOpen(false)}
+        onSuccess={loadData}
+      />
+
+      <ConsultationModal
+        isOpen={isConsultModalOpen}
+        onClose={() => setIsConsultModalOpen(false)}
+        onSuccess={loadData}
+      />
     </div>
   );
 }
