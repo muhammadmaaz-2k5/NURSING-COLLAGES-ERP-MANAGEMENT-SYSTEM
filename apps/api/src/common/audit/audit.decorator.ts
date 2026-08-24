@@ -4,10 +4,11 @@ export const AUDITED_METADATA = 'AUDITED_METADATA';
 
 export interface AuditOptions {
   entity: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'PUBLISH' | 'APPROVE' | 'REVOKE';
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'PUBLISH' | 'APPROVE' | 'REVOKE' | 'CALCULATE' | 'DISBURSE' | 'REVERSE';
   getEntityId?: (args: any[], result?: any) => string | undefined;
   captureDiff?: boolean;
 }
+
 
 /**
  * Declarative decorator for auditing sensitive business operations

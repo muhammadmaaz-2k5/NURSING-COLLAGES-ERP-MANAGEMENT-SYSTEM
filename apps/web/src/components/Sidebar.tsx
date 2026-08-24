@@ -14,7 +14,12 @@ import {
   CalendarCheck,
   Award,
   CreditCard,
+  Pill,
   Hotel,
+  BookOpen,
+  Bus,
+  Briefcase,
+  Globe,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -23,16 +28,21 @@ export function Sidebar() {
 
   const navItems = [
     { label: 'Overview', href: '/', icon: LayoutDashboard },
+    { label: 'Public Portal', href: '/portal', icon: Globe },
     { label: 'SaaS Modules', href: '/modules', icon: Layers },
     { label: 'Academics', href: '/academic', icon: GraduationCap },
     { label: 'Students', href: '/students', icon: Users },
     { label: 'Faculty', href: '/faculty', icon: UserCheck },
     { label: 'Clinical & Skills', href: '/clinical', icon: Stethoscope },
     { label: 'Hospital & OPD', href: '/hospital', icon: Building },
+    { label: 'Pharmacy Stock', href: '/pharmacy', icon: Pill },
+    { label: 'Hostel & Housing', href: '/hostel', icon: Hotel },
+    { label: 'Library Catalog', href: '/library', icon: BookOpen },
+    { label: 'Transport Fleet', href: '/transport', icon: Bus },
+    { label: 'HR & Payroll', href: '/hr', icon: Briefcase },
     { label: 'Attendance', href: '/attendance', icon: CalendarCheck },
     { label: 'Exams & Results', href: '/exams', icon: Award },
     { label: 'Fees & Finance', href: '/finance', icon: CreditCard },
-    { label: 'Facilities', href: '/facilities', icon: Hotel },
   ];
 
   return (
@@ -74,3 +84,5 @@ export function Sidebar() {
     </aside>
   );
 }
+
+

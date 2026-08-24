@@ -58,4 +58,15 @@ export class TransactionService {
 
     throw new Error('Transaction failed after maximum retry attempts');
   }
+
+  /**
+   * Semantic alias for run()
+   */
+  async executeWithTransaction<T>(
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+    options: TransactionOptions = {},
+  ): Promise<T> {
+    return this.run(fn, options);
+  }
 }
+

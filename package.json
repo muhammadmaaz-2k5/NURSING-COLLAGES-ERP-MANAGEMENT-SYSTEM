@@ -17,11 +17,18 @@
     "prisma:validate": "prisma validate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
-    "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
-    "backup": "ts-node scripts/backup.ts",
-    "restore": "ts-node scripts/restore.ts",
+    "prisma:seed": "ts-node -P tsconfig.base.json prisma/seed.ts",
+    "backup": "ts-node -P tsconfig.base.json scripts/backup.ts",
+    "test": "npm run --workspace=apps/api test",
+    "test:all": "npm run --workspace=apps/api test && npm run test:concurrency",
+    "test:concurrency": "ts-node -P tsconfig.base.json scripts/qa/concurrency-invariants.test.ts",
+    "drill:recovery": "ts-node -P tsconfig.base.json scripts/drills/recovery-drill.ts",
+    "drill:redis": "ts-node -P tsconfig.base.json scripts/drills/redis-resilience.ts",
     "prisma:studio": "prisma studio",
     "lint": "npm run --workspace=apps/api lint && npm run --workspace=apps/web lint"
+
+
+
   },
   "devDependencies": {
     "@types/node": "^22.13.5",

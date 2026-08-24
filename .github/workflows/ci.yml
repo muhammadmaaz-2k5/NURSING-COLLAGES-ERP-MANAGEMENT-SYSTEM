@@ -1,0 +1,75 @@
+name: PERN Monolith CI & Production QA Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-test:
+    name: Build, Lint & Automated Concurrency QA
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: pern_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
+      - name: Validate Prisma Schema
+        run: npm run prisma:validate
+
+      - name: Generate Prisma Client
+        run: npm run prisma:generate
+
+      - name: Push Test Database Schema
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/pern_test_db?schema=public
+
+      - name: Typecheck & Compile Monorepo (NestJS & Next.js)
+        run: npm run build
+
+      - name: Execute Automated Concurrency & Business Invariant QA Suite
+        run: npx ts-node scripts/qa/concurrency-invariants.test.ts
+        env:
+          DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/pern_test_db?schema=public
+
+      - name: Execute Disaster Recovery & Backup Integrity Drill
+        run: npx ts-node scripts/drills/recovery-drill.ts
+
+      - name: Execute Redis & BullMQ Resiliency Drill
+        run: npx ts-node scripts/drills/redis-resilience.ts

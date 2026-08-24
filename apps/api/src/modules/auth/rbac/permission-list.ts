@@ -43,15 +43,28 @@ export const SYSTEM_PERMISSIONS: SystemPermissionDef[] = [
   { code: 'result.publish', module: ModuleType.RESULTS, action: PermissionAction.MANAGE, resource: 'result', description: 'Enter marks and publish exam results' },
 
   // Fees & Finance
+  { code: 'fee.structure.read', module: ModuleType.FEES, action: PermissionAction.READ, resource: 'structure', description: 'View fee structures' },
   { code: 'fee.structure.manage', module: ModuleType.FEES, action: PermissionAction.MANAGE, resource: 'structure', description: 'Create and update fee structures' },
+  { code: 'invoice.read', module: ModuleType.FINANCE, action: PermissionAction.READ, resource: 'invoice', description: 'View student fee invoices and challans' },
+  { code: 'invoice.create', module: ModuleType.FINANCE, action: PermissionAction.CREATE, resource: 'invoice', description: 'Generate student fee invoices' },
+  { code: 'invoice.cancel', module: ModuleType.FINANCE, action: PermissionAction.DELETE, resource: 'invoice', description: 'Cancel or void student fee invoices' },
   { code: 'payment.read', module: ModuleType.FINANCE, action: PermissionAction.READ, resource: 'payment', description: 'View student fee invoices and payment ledger' },
   { code: 'payment.create', module: ModuleType.FINANCE, action: PermissionAction.CREATE, resource: 'payment', description: 'Record student fee payments' },
+  { code: 'payment.reverse', module: ModuleType.FINANCE, action: PermissionAction.UPDATE, resource: 'payment', description: 'Reverse or refund fee payments' },
+  { code: 'payment.reconcile', module: ModuleType.FINANCE, action: PermissionAction.MANAGE, resource: 'payment', description: 'Reconcile bank and online payments' },
+  { code: 'scholarship.read', module: ModuleType.SCHOLARSHIPS, action: PermissionAction.READ, resource: 'scholarship', description: 'View scholarships and concessions' },
+  { code: 'scholarship.manage', module: ModuleType.SCHOLARSHIPS, action: PermissionAction.MANAGE, resource: 'scholarship', description: 'Manage and award scholarships' },
+  { code: 'finance.report.read', module: ModuleType.FINANCE, action: PermissionAction.READ, resource: 'report', description: 'View institutional revenue and collections reports' },
 
   // Clinical Training & Nursing Skills (Specialized Healthcare ERP)
   { code: 'clinical.site.read', module: ModuleType.CLINICAL_TRAINING, action: PermissionAction.READ, resource: 'site', description: 'View hospital clinical training sites' },
+  { code: 'clinical.site.manage', module: ModuleType.CLINICAL_TRAINING, action: PermissionAction.MANAGE, resource: 'site', description: 'Manage hospital clinical training sites and wards' },
   { code: 'clinical.training.read', module: ModuleType.CLINICAL_TRAINING, action: PermissionAction.READ, resource: 'training', description: 'View student hospital ward rotations' },
   { code: 'clinical.training.manage', module: ModuleType.CLINICAL_TRAINING, action: PermissionAction.MANAGE, resource: 'training', description: 'Allocate and manage student clinical ward postings' },
+  { code: 'clinical.skill.read', module: ModuleType.CLINICAL_TRAINING, action: PermissionAction.READ, resource: 'skill', description: 'View nursing procedural skills and student logbooks' },
+  { code: 'clinical.skill.create', module: ModuleType.CLINICAL_TRAINING, action: PermissionAction.CREATE, resource: 'skill', description: 'Record student procedural skill practice attempt' },
   { code: 'clinical.skill.verify', module: ModuleType.CLINICAL_TRAINING, action: PermissionAction.MANAGE, resource: 'skill', description: 'Supervisors grade and verify nursing competency logbook skills' },
+  { code: 'clinical.skill.manage', module: ModuleType.CLINICAL_TRAINING, action: PermissionAction.MANAGE, resource: 'skill', description: 'Manage clinical skills catalog and competency criteria' },
 
   // Hospital & OPD/IPD
   { code: 'hospital.patient.read', module: ModuleType.HOSPITAL, action: PermissionAction.READ, resource: 'patient', description: 'View hospital patients' },

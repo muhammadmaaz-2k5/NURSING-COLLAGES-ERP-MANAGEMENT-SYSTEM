@@ -1,25 +1,82 @@
-import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiProperty } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+  ApiBearerAuth,
+  ApiProperty,
+} from '@nestjs/swagger';
 import { AttendanceService } from './attendance.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { Audited } from '../../common/audit/audit.decorator';
+import { Idempotent } from '../../common/database/idempotency.decorator';
 import { AttendanceStatus } from '@prisma/client';
-import { IsNotEmpty, IsString, IsEnum, IsOptional, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
-class MarkAttendanceItemDto {
+class MarkStudentRecordDto {
   @ApiProperty({ example: 'student-cuid-123' })
   @IsNotEmpty()
   @IsString()
   studentId: string;
+
+  @ApiProperty({ enum: AttendanceStatus, example: AttendanceStatus.PRESENT })
+  @IsEnum(AttendanceStatus)
+  status: AttendanceStatus;
+
+  @ApiProperty({ example: 'On-time bedside ward rounds', required: false })
+  @IsOptional()
+  @IsString()
+  remarks?: string;
+}
+
+class MarkBatchAttendanceRequestDto {
+  @ApiProperty({ example: 'class-cuid-123' })
+  @IsNotEmpty()
+  @IsString()
+  classId: string;
 
   @ApiProperty({ example: 'subject-cuid-123' })
   @IsNotEmpty()
   @IsString()
   subjectId: string;
 
-  @ApiProperty({ example: 'class-cuid-123' })
+  @ApiProperty({ example: '2026-08-24' })
   @IsNotEmpty()
   @IsString()
-  classId: string;
+  date: string;
+
+  @ApiProperty({ type: [MarkStudentRecordDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MarkStudentRecordDto)
+  records: MarkStudentRecordDto[];
+}
+
+class MarkFacultyAttendanceDto {
+  @ApiProperty({ example: 'faculty-cuid-123' })
+  @IsNotEmpty()
+  @IsString()
+  facultyId: string;
 
   @ApiProperty({ example: '2026-08-24' })
   @IsNotEmpty()
@@ -30,52 +87,59 @@ class MarkAttendanceItemDto {
   @IsEnum(AttendanceStatus)
   status: AttendanceStatus;
 
-  @ApiProperty({ example: 'On time', required: false })
+  @ApiProperty({ example: 'Biometric biometric match', required: false })
   @IsOptional()
   @IsString()
   remarks?: string;
 }
 
-class BulkMarkAttendanceDto {
-  @ApiProperty({ type: [MarkAttendanceItemDto] })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => MarkAttendanceItemDto)
-  records: MarkAttendanceItemDto[];
-}
-
-@ApiTags('Attendance Management')
+@ApiTags('Attendance Tracking')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@ApiBearerAuth()
 @Controller('attendance')
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
-  @Get('student/:studentId')
-  @ApiOperation({ summary: 'Get attendance history for a student' })
+  @Post('students/batch')
+  @RequirePermissions('attendance.create')
+  @Idempotent({ ttlSeconds: 120 })
+  @Audited({ entity: 'StudentAttendance', action: 'CREATE' })
+  @ApiOperation({ summary: 'Batch mark student class attendance with idempotency protection' })
+  markStudentBatch(@Body() dto: MarkBatchAttendanceRequestDto) {
+    return this.attendanceService.markStudentBatch(dto);
+  }
+
+  @Get('classes/:classId/subjects/:subjectId')
+  @RequirePermissions('attendance.read')
+  @ApiOperation({ summary: 'Get class attendance sheet & marking roster for a specific date' })
+  @ApiParam({ name: 'classId', description: 'Class section UUID' })
+  @ApiParam({ name: 'subjectId', description: 'Subject UUID' })
+  @ApiQuery({ name: 'date', example: '2026-08-24' })
+  getClassSheet(
+    @Param('classId') classId: string,
+    @Param('subjectId') subjectId: string,
+    @Query('date') date: string,
+  ) {
+    return this.attendanceService.getClassAttendanceSheet(classId, subjectId, date);
+  }
+
+  @Get('students/:studentId/report')
+  @RequirePermissions('attendance.read')
+  @ApiOperation({ summary: 'Get individual student attendance percentage and exam eligibility (75% threshold)' })
   @ApiParam({ name: 'studentId', description: 'Student UUID' })
   @ApiQuery({ name: 'subjectId', required: false })
-  getStudentAttendance(
+  getStudentReport(
     @Param('studentId') studentId: string,
     @Query('subjectId') subjectId?: string,
   ) {
-    return this.attendanceService.getStudentAttendance(studentId, subjectId);
+    return this.attendanceService.getStudentAttendanceSummary(studentId, subjectId);
   }
 
-  @Get('class')
-  @ApiOperation({ summary: 'Get daily attendance sheet for a class section and subject' })
-  @ApiQuery({ name: 'classId', required: true })
-  @ApiQuery({ name: 'subjectId', required: true })
-  @ApiQuery({ name: 'date', required: true, example: '2026-08-24' })
-  getClassAttendance(
-    @Query('classId') classId: string,
-    @Query('subjectId') subjectId: string,
-    @Query('date') date: string,
-  ) {
-    return this.attendanceService.getClassAttendance(classId, subjectId, date);
-  }
-
-  @Post('mark')
-  @ApiOperation({ summary: 'Record or update student attendance in batch' })
-  markAttendance(@Body() dto: BulkMarkAttendanceDto) {
-    return this.attendanceService.markStudentAttendance(dto.records);
+  @Post('faculty')
+  @RequirePermissions('attendance.create')
+  @Audited({ entity: 'FacultyAttendance', action: 'CREATE' })
+  @ApiOperation({ summary: 'Mark faculty attendance log' })
+  markFaculty(@Body() dto: MarkFacultyAttendanceDto) {
+    return this.attendanceService.markFacultyAttendance(dto.facultyId, dto.date, dto.status, dto.remarks);
   }
 }
