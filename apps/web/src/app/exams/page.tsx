@@ -1,226 +1,242 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  FileText,
   Award,
-  CheckCircle,
-  Clock,
-  TrendingUp,
-  GraduationCap,
   Calendar,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Plus,
+  ArrowRight,
+  ShieldCheck,
   Lock,
+  Sparkles,
 } from 'lucide-react';
-import { StatsCard } from '../../components/StatsCard';
+import { DataTable, Column } from '../../components/tables/DataTable';
+import { Button } from '../../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { ExamCreateModal } from '../../features/exams/components/ExamCreateModal';
+import { fetchExams } from '../../features/exams/services/exams.api';
+import { ExamItem } from '../../features/exams/types/exams.types';
+import { formatDate } from '../../lib/utils';
 
 export default function ExamsPage() {
-  const [activeTab, setActiveTab] = useState<'exams' | 'transcript'>('exams');
+  const router = useRouter();
+  const [exams, setExams] = useState<ExamItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
 
-  const scheduledExams = [
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetchExams();
+      setExams(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const filteredExams =
+    selectedStatus === 'ALL'
+      ? exams
+      : exams.filter((e) => e.status === selectedStatus);
+
+  const columns: Column<ExamItem>[] = [
     {
-      id: 'EXAM-2026-01',
-      name: 'Midterm Examination Fall 2026',
-      subject: 'Adult Health Nursing I',
-      semester: 'Semester 3 (BSN)',
-      type: 'MIDTERM',
-      date: '2026-09-15',
-      time: '09:00 - 11:00 AM',
-      totalMarks: 50,
-      passingMarks: 25,
-      status: 'SCHEDULED',
+      header: 'Exam Title & Subject',
+      accessorKey: 'name',
+      sortable: true,
+      cell: (e) => (
+        <div>
+          <p className="font-bold text-slate-100">{e.name}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="font-mono text-blue-400 text-xs font-semibold">
+              {e.subject.code}
+            </span>
+            <span className="text-slate-400 text-xs">• {e.subject.name}</span>
+          </div>
+        </div>
+      ),
     },
     {
-      id: 'EXAM-2026-02',
-      name: 'OSPE Clinical Simulation Evaluation',
-      subject: 'Fundamental Nursing Skills I',
-      semester: 'Semester 1 (BSN)',
-      type: 'PRACTICAL',
-      date: '2026-09-18',
-      time: '10:00 - 02:00 PM',
-      totalMarks: 100,
-      passingMarks: 60,
-      status: 'SCHEDULED',
+      header: 'Type',
+      accessorKey: 'type',
+      sortable: true,
+      cell: (e) => <Badge variant="purple" size="sm">{e.type}</Badge>,
     },
     {
-      id: 'EXAM-2026-03',
-      name: 'Final Examination Spring 2026',
-      subject: 'Human Anatomy & Histology',
-      semester: 'Semester 2 (BSN)',
-      type: 'FINAL',
-      date: '2026-06-20',
-      time: '09:00 - 12:00 PM',
-      totalMarks: 100,
-      passingMarks: 50,
-      status: 'COMPLETED',
+      header: 'Schedule & Venue',
+      sortable: true,
+      cell: (e) => (
+        <div className="text-xs text-slate-300">
+          <p className="font-medium">{formatDate(e.examDate)}</p>
+          <p className="text-slate-500 font-mono">
+            {e.startTime} - {e.endTime} • {e.roomName || 'Main Hall'}
+          </p>
+        </div>
+      ),
+    },
+    {
+      header: 'Marks Scale',
+      sortable: true,
+      cell: (e) => (
+        <div className="text-xs font-mono">
+          <span className="font-bold text-white">{e.totalMarks} Max</span>
+          <span className="text-slate-500 block">Pass: {e.passingMarks}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Status',
+      accessorKey: 'status',
+      cell: (e) => (
+        <Badge
+          variant={
+            e.status === 'PUBLISHED'
+              ? 'success'
+              : e.status === 'GRADING'
+              ? 'warning'
+              : 'primary'
+          }
+          size="sm"
+          dot
+        >
+          {e.status}
+        </Badge>
+      ),
+    },
+    {
+      header: 'Action',
+      cell: (e) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push(`/exams/${e.id}`)}
+          rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+        >
+          Marks Workspace
+        </Button>
+      ),
     },
   ];
 
-  const sampleTranscript = {
-    studentId: 'STD-2026-0001',
-    studentName: 'Muhammad Maaz',
-    program: 'Bachelor of Science in Nursing (BSN Generic)',
-    cgpa: 3.86,
-    totalCredits: 34,
-    semesters: [
-      {
-        semesterName: 'Semester 1 - Fall 2025',
-        gpa: 3.82,
-        courses: [
-          { code: 'NUR-101', name: 'Fundamental Nursing Skills I', credits: 4, marks: 88, grade: 'A+', gp: 4.0 },
-          { code: 'ANAT-102', name: 'Human Anatomy & Histology', credits: 4, marks: 82, grade: 'A', gp: 3.7 },
-          { code: 'PHYS-103', name: 'Human Physiology', credits: 4, marks: 84, grade: 'A', gp: 3.7 },
-          { code: 'ENG-101', name: 'English Functional Writing', credits: 3, marks: 91, grade: 'A+', gp: 4.0 },
-        ],
-      },
-      {
-        semesterName: 'Semester 2 - Spring 2026',
-        gpa: 3.90,
-        courses: [
-          { code: 'NUR-201', name: 'Applied Nursing Pharmacology', credits: 3, marks: 86, grade: 'A+', gp: 4.0 },
-          { code: 'NUR-202', name: 'Adult Health Nursing I', credits: 6, marks: 89, grade: 'A+', gp: 4.0 },
-          { code: 'BIO-105', name: 'Biochemistry for Nurses', credits: 3, marks: 79, grade: 'B+', gp: 3.3 },
-        ],
-      },
-    ],
-  };
-
   return (
-    <div>
-      <div className="page-header">
-        <h2>Examinations, Grade Engine & Transcripts</h2>
-        <p>Schedule Midterm, Final, and OSPE practical evaluations, enter student marks, and calculate semester GPA & cumulative CGPA.</p>
-      </div>
-
-      <div className="stats-grid">
-        <StatsCard label="Scheduled Exams" value="14 Assessments" icon={Calendar} iconBg="rgba(59, 130, 246, 0.15)" iconColor="#60a5fa" />
-        <StatsCard label="Completed & Published" value="42 Results" icon={CheckCircle} iconBg="rgba(16, 185, 129, 0.15)" iconColor="#34d399" />
-        <StatsCard label="Average Campus GPA" value="3.42 / 4.00" icon={TrendingUp} iconBg="rgba(139, 92, 246, 0.15)" iconColor="#a78bfa" />
-        <StatsCard label="Pass Rate" value="96.8% Passed" icon={Award} iconBg="rgba(245, 158, 11, 0.15)" iconColor="#fbbf24" />
-      </div>
-
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-        <button
-          onClick={() => setActiveTab('exams')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'exams' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'exams' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Scheduled Examinations
-        </button>
-        <button
-          onClick={() => setActiveTab('transcript')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'transcript' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'transcript' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Transcript & GPA Engine Explorer
-        </button>
-      </div>
-
-      {activeTab === 'exams' && (
-        <div className="table-container">
-          <table className="glass-table">
-            <thead>
-              <tr>
-                <th>Exam Name</th>
-                <th>Course Subject</th>
-                <th>Semester Cohort</th>
-                <th>Assessment Type</th>
-                <th>Date & Time</th>
-                <th>Total / Passing Marks</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scheduledExams.map((e) => (
-                <tr key={e.id}>
-                  <td style={{ fontWeight: 600 }}>{e.name}</td>
-                  <td><span style={{ fontWeight: 500 }}>{e.subject}</span></td>
-                  <td><span className="code-pill">{e.semester}</span></td>
-                  <td><span className="badge-pill primary">{e.type}</span></td>
-                  <td>
-                    <div style={{ fontSize: '12px' }}>{e.date}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{e.time}</div>
-                  </td>
-                  <td style={{ fontWeight: 600 }}>{e.totalMarks} / {e.passingMarks}</td>
-                  <td>
-                    <span className={`badge-pill ${e.status === 'COMPLETED' ? 'success' : 'warning'}`}>
-                      {e.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              Examinations & Results Management
+            </h1>
+            <Badge variant="primary" size="sm">
+              <ShieldCheck className="w-3.5 h-3.5 mr-1 text-blue-400" />
+              HEC/PNC Standard Grading
+            </Badge>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Conduct academic evaluations, manage marks compilation, auto-calculate GPA, and publish official transcripts.
+          </p>
         </div>
-      )}
 
-      {activeTab === 'transcript' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <h3 style={{ fontSize: '18px', fontWeight: 600 }}>{sampleTranscript.studentName}</h3>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  Registration ID: <span className="code-pill">{sampleTranscript.studentId}</span> | {sampleTranscript.program}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Cumulative CGPA</div>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#34d399' }}>{sampleTranscript.cgpa} / 4.00</div>
-              </div>
-            </div>
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => setIsModalOpen(true)}
+          leftIcon={<Plus className="w-4 h-4" />}
+        >
+          Schedule Examination
+        </Button>
+      </div>
 
-            {sampleTranscript.semesters.map((sem, i) => (
-              <div key={i} style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h4 style={{ fontSize: '15px', fontWeight: 600 }}>{sem.semesterName}</h4>
-                  <span className="badge-pill success">Semester GPA: {sem.gpa}</span>
-                </div>
+      {/* KPI Stats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Total Examinations
+          </span>
+          <h3 className="text-2xl font-black text-white mt-1">14</h3>
+          <p className="text-xs text-blue-400 mt-2 font-medium">Midterms, Finals & OSCE</p>
+        </Card>
 
-                <table className="glass-table">
-                  <thead>
-                    <tr>
-                      <th>Course Code</th>
-                      <th>Course Name</th>
-                      <th>Credits</th>
-                      <th>Obtained Marks</th>
-                      <th>Letter Grade</th>
-                      <th>Grade Point</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sem.courses.map((c) => (
-                      <tr key={c.code}>
-                        <td><span className="code-pill">{c.code}</span></td>
-                        <td>{c.name}</td>
-                        <td>{c.credits} Cr.</td>
-                        <td style={{ fontWeight: 600 }}>{c.marks} / 100</td>
-                        <td><span className="badge-pill primary">{c.grade}</span></td>
-                        <td style={{ fontWeight: 600, color: '#60a5fa' }}>{c.gp.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Grading in Progress
+          </span>
+          <h3 className="text-2xl font-black text-amber-400 mt-1">2</h3>
+          <p className="text-xs text-amber-300 mt-2 font-medium">Awaiting final review</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Published Results
+          </span>
+          <h3 className="text-2xl font-black text-emerald-400 mt-1">12</h3>
+          <p className="text-xs text-emerald-300 mt-2 font-medium">Locked & Transcribed</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Average Batch GPA
+          </span>
+          <h3 className="text-2xl font-black text-purple-400 mt-1">3.64</h3>
+          <p className="text-xs text-purple-300 mt-2 font-medium">96.8% Overall Pass Rate</p>
+        </Card>
+      </div>
+
+      {/* Directory Table */}
+      <Card className="p-6 space-y-4">
+        <CardHeader className="pb-2">
+          <div>
+            <CardTitle className="text-lg">Examination Calendar & Schedules</CardTitle>
+            <CardDescription>
+              Click any examination to enter marks, calculate grades, or publish results
+            </CardDescription>
+          </div>
+
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/60 border border-slate-800">
+            {['ALL', 'SCHEDULED', 'GRADING', 'PUBLISHED'].map((st) => (
+              <button
+                key={st}
+                onClick={() => setSelectedStatus(st)}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  selectedStatus === st
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {st}
+              </button>
             ))}
           </div>
-        </div>
-      )}
+        </CardHeader>
+
+        <DataTable
+          columns={columns}
+          data={filteredExams}
+          isLoading={isLoading}
+          searchPlaceholder="Search examination by subject, code, or title..."
+          pageSize={10}
+          onRowClick={(e) => router.push(`/exams/${e.id}`)}
+        />
+      </Card>
+
+      {/* Create Exam Modal */}
+      <ExamCreateModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={loadData}
+      />
     </div>
   );
 }
