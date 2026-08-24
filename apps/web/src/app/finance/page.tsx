@@ -1,287 +1,407 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   CreditCard,
   DollarSign,
   TrendingUp,
-  Receipt,
-  AlertCircle,
-  CheckCircle,
-  FileSpreadsheet,
+  AlertTriangle,
+  CheckCircle2,
+  Plus,
+  ArrowRight,
+  ShieldCheck,
   Award,
   Layers,
-  Clock,
 } from 'lucide-react';
-import { StatsCard } from '../../components/StatsCard';
+import { DataTable, Column } from '../../components/tables/DataTable';
+import { Button } from '../../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { InvoiceStatusBadge } from '../../features/finance/components/InvoiceStatusBadge';
+import { InvoiceCreateModal } from '../../features/finance/components/InvoiceCreateModal';
+import { FeeStructureModal } from '../../features/finance/components/FeeStructureModal';
+import { ScholarshipModal } from '../../features/finance/components/ScholarshipModal';
+import {
+  fetchInvoices,
+  fetchFeeStructures,
+  fetchScholarships,
+} from '../../features/finance/services/finance.api';
+import {
+  InvoiceItem,
+  FeeStructure,
+  Scholarship,
+} from '../../features/finance/types/finance.types';
+import { formatCurrency, formatDate } from '../../lib/utils';
+
+type FinanceTab = 'invoices' | 'structures' | 'scholarships';
 
 export default function FinancePage() {
-  const [activeTab, setActiveTab] = useState<'invoices' | 'structures' | 'scholarships' | 'statement'>('invoices');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<FinanceTab>('invoices');
+  const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
+  const [structures, setStructures] = useState<FeeStructure[]>([]);
+  const [scholarships, setScholarships] = useState<Scholarship[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
 
-  const invoices = [
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [isStructureModalOpen, setIsStructureModalOpen] = useState(false);
+  const [isScholarshipModalOpen, setIsScholarshipModalOpen] = useState(false);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [invRes, strRes, schRes] = await Promise.all([
+        fetchInvoices(),
+        fetchFeeStructures(),
+        fetchScholarships(),
+      ]);
+      setInvoices(invRes.data);
+      setStructures(strRes);
+      setScholarships(schRes);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const filteredInvoices =
+    selectedStatus === 'ALL'
+      ? invoices
+      : invoices.filter((i) => i.status === selectedStatus);
+
+  const invoiceColumns: Column<InvoiceItem>[] = [
     {
-      invoiceNo: 'INV-2026-00101',
-      studentId: 'STD-2026-0001',
-      studentName: 'Muhammad Maaz',
-      feeName: 'BSN Year 1 Semester 1 Tuition Fee',
-      amount: 85000,
-      paidAmount: 85000,
-      dueDate: '2026-09-10',
-      status: 'PAID',
-      method: 'BANK_TRANSFER',
-      transactionId: 'HBL-FT-998811',
+      header: 'Challan #',
+      accessorKey: 'challanNumber',
+      sortable: true,
+      cell: (i) => (
+        <span className="font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+          {i.challanNumber}
+        </span>
+      ),
     },
     {
-      invoiceNo: 'INV-2026-00102',
-      studentId: 'STD-2026-0002',
-      studentName: 'Ayesha Bibi',
-      feeName: 'BSN Year 1 Semester 1 Tuition Fee',
-      amount: 42500, // 50% merit scholarship applied
-      paidAmount: 0,
-      dueDate: '2026-09-10',
-      status: 'PENDING',
-      method: null,
-      transactionId: null,
+      header: 'Student Name & Program',
+      accessorKey: 'studentName',
+      sortable: true,
+      cell: (i) => (
+        <div className="flex items-center gap-3">
+          <img
+            src={i.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150'}
+            alt={i.studentName}
+            className="w-8 h-8 rounded-lg object-cover border border-slate-700 shrink-0"
+          />
+          <div>
+            <p className="font-bold text-slate-100">{i.studentName}</p>
+            <span className="text-xs text-slate-400">
+              {i.studentRegId} • {i.programName}
+            </span>
+          </div>
+        </div>
+      ),
     },
     {
-      invoiceNo: 'INV-2026-00088',
-      studentId: 'STD-2025-0144',
-      studentName: 'Zainab Fatima',
-      feeName: 'Post-RN Year 2 Clinical Fee',
-      amount: 45000,
-      paidAmount: 20000,
-      dueDate: '2026-08-15',
-      status: 'PARTIAL',
-      method: 'ONLINE',
-      transactionId: 'EP-99882233',
+      header: 'Fee Description',
+      accessorKey: 'feeStructureName',
+      sortable: true,
+      cell: (i) => <span className="text-slate-300 font-medium text-xs">{i.feeStructureName}</span>,
     },
-  ];
-
-  const feeStructures = [
-    { program: 'BSN Generic (4 Years)', feeType: 'TUITION', name: 'Semester Tuition Fee', amount: 'PKR 85,000 / Sem' },
-    { program: 'BSN Generic (4 Years)', feeType: 'CLINICAL', name: 'Hospital Ward Practicum Fee', amount: 'PKR 25,000 / Year' },
-    { program: 'Post-RN BSN (2 Years)', feeType: 'TUITION', name: 'Semester Tuition Fee', amount: 'PKR 65,000 / Sem' },
-    { program: 'Doctor of Physical Therapy (DPT)', feeType: 'TUITION', name: 'Semester Tuition Fee', amount: 'PKR 95,000 / Sem' },
-  ];
-
-  const scholarships = [
-    { name: 'PNC Nursing Merit Excellence Award', type: 'MERIT', benefit: '50% Tuition Concession', recipients: 12 },
-    { name: 'Shuhada & Healthcare Workers Children Concession', type: 'SPECIAL', benefit: 'PKR 40,000 Fixed Aid / Year', recipients: 8 },
-    { name: 'Need-Based Financial Assistance Endowment', type: 'NEED_BASED', benefit: '25% - 75% Variable Support', recipients: 24 },
-  ];
-
-  const sampleLedger = [
-    { date: '2026-08-10', type: 'DEBIT', desc: 'Tuition Fee - Fall 2026 (INV-2026-00101)', amount: '85,000', balance: '85,000' },
-    { date: '2026-08-14', type: 'CREDIT', desc: 'PNC Merit Scholarship 50% Concession', amount: '-42,500', balance: '42,500' },
-    { date: '2026-08-20', type: 'CREDIT', desc: 'Bank Transfer Payment (HBL-FT-998811)', amount: '-42,500', balance: '0' },
+    {
+      header: 'Net Payable',
+      accessorKey: 'netAmount',
+      sortable: true,
+      cell: (i) => (
+        <div className="font-mono text-xs">
+          <span className="font-bold text-white text-sm">{formatCurrency(i.netAmount)}</span>
+          {i.scholarshipAmount > 0 && (
+            <span className="text-purple-400 block text-[10px]">
+              (Scholarship -{formatCurrency(i.scholarshipAmount)})
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      header: 'Paid / Balance',
+      sortable: true,
+      cell: (i) => (
+        <div className="font-mono text-xs">
+          <span className="text-emerald-400 font-bold">
+            {i.paidAmount > 0 ? formatCurrency(i.paidAmount) : 'Rs. 0'}
+          </span>
+          <span className="text-slate-500 block text-[10px]">
+            Due: {formatCurrency(i.remainingAmount)}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: 'Due Date',
+      accessorKey: 'dueDate',
+      sortable: true,
+      cell: (i) => <span className="font-mono text-slate-400 text-xs">{formatDate(i.dueDate)}</span>,
+    },
+    {
+      header: 'Status',
+      accessorKey: 'status',
+      cell: (i) => <InvoiceStatusBadge status={i.status} />,
+    },
+    {
+      header: 'Action',
+      cell: (i) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push(`/finance/invoices/${i.id}`)}
+          rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+        >
+          Manage
+        </Button>
+      ),
+    },
   ];
 
   return (
-    <div>
-      <div className="page-header">
-        <h2>Fees, Invoices, Financial Ledger & Scholarships</h2>
-        <p>Manage program fee tariffs, generate student fee challans, process idempotent payments, and maintain immutable running ledgers.</p>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              Finance, Billing & Student Fee Ledger
+            </h1>
+            <Badge variant="primary" size="sm">
+              <ShieldCheck className="w-3.5 h-3.5 mr-1 text-blue-400" />
+              Audited Ledger Engine
+            </Badge>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Manage student fee challans, atomic bank payment collections, scholarship concessions, and double-entry ledgers.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsStructureModalOpen(true)}
+            leftIcon={<Layers className="w-4 h-4" />}
+          >
+            Create Tariff
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setIsInvoiceModalOpen(true)}
+            leftIcon={<Plus className="w-4 h-4" />}
+          >
+            Issue Fee Challan
+          </Button>
+        </div>
       </div>
 
-      <div className="stats-grid">
-        <StatsCard label="Total Revenue Billed" value="PKR 42.8M" icon={DollarSign} iconBg="rgba(59, 130, 246, 0.15)" iconColor="#60a5fa" />
-        <StatsCard label="Collected Revenue" value="PKR 38.2M (89.2%)" icon={CheckCircle} iconBg="rgba(16, 185, 129, 0.15)" iconColor="#34d399" />
-        <StatsCard label="Outstanding Receivables" value="PKR 4.6M" icon={AlertCircle} iconBg="rgba(245, 158, 11, 0.15)" iconColor="#fbbf24" />
-        <StatsCard label="Scholarships Awarded" value="PKR 3.4M" icon={Award} iconBg="rgba(139, 92, 246, 0.15)" iconColor="#a78bfa" />
+      {/* KPI Stats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Total Billed
+          </span>
+          <h3 className="text-2xl font-black text-white mt-1">PKR 14.8M</h3>
+          <p className="text-xs text-blue-400 mt-2 font-medium">Fall 2026 Invoiced</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Total Collected
+          </span>
+          <h3 className="text-2xl font-black text-emerald-400 mt-1">PKR 13.9M</h3>
+          <p className="text-xs text-emerald-300 mt-2 font-medium">Cleared in Bank</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Outstanding Dues
+          </span>
+          <h3 className="text-2xl font-black text-rose-400 mt-1">PKR 860K</h3>
+          <p className="text-xs text-rose-300 mt-2 font-medium">Pending Recovery</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Collection Rate
+          </span>
+          <h3 className="text-2xl font-black text-purple-400 mt-1">94.2%</h3>
+          <p className="text-xs text-purple-300 mt-2 font-medium">High Recovery Tier</p>
+        </Card>
       </div>
 
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-        <button
-          onClick={() => setActiveTab('invoices')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'invoices' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'invoices' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Invoices & Challans ({invoices.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('structures')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'structures' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'structures' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Fee Structures ({feeStructures.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('scholarships')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'scholarships' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'scholarships' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Scholarships ({scholarships.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('statement')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'statement' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'statement' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Student Financial Statement
-        </button>
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
+        {[
+          { id: 'invoices' as const, label: 'Fee Challans & Invoices', icon: CreditCard },
+          { id: 'structures' as const, label: 'Fee Tariffs & Schedules', icon: Layers, count: structures.length },
+          { id: 'scholarships' as const, label: 'Scholarships & Concessions', icon: Award, count: scholarships.length },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span
+                  className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
+      {/* Tab Panels */}
+
+      {/* 1. INVOICES */}
       {activeTab === 'invoices' && (
-        <div className="table-container">
-          <table className="glass-table">
-            <thead>
-              <tr>
-                <th>Challan / Invoice No</th>
-                <th>Student</th>
-                <th>Fee Particulars</th>
-                <th>Payable Amount</th>
-                <th>Paid Amount</th>
-                <th>Due Date</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoices.map((inv) => (
-                <tr key={inv.invoiceNo}>
-                  <td><span className="code-pill">{inv.invoiceNo}</span></td>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{inv.studentName}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{inv.studentId}</div>
-                  </td>
-                  <td><span style={{ fontSize: '13px' }}>{inv.feeName}</span></td>
-                  <td style={{ fontWeight: 600 }}>PKR {inv.amount.toLocaleString()}</td>
-                  <td style={{ fontWeight: 600, color: inv.paidAmount > 0 ? '#34d399' : 'var(--text-muted)' }}>
-                    PKR {inv.paidAmount.toLocaleString()}
-                  </td>
-                  <td style={{ fontSize: '12px' }}>{inv.dueDate}</td>
-                  <td>
-                    <span className={`badge-pill ${inv.status === 'PAID' ? 'success' : inv.status === 'PARTIAL' ? 'warning' : 'danger'}`}>
-                      {inv.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {activeTab === 'structures' && (
-        <div className="table-container">
-          <table className="glass-table">
-            <thead>
-              <tr>
-                <th>Program</th>
-                <th>Fee Category</th>
-                <th>Fee Name</th>
-                <th>Tariff Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {feeStructures.map((f, idx) => (
-                <tr key={idx}>
-                  <td style={{ fontWeight: 600 }}>{f.program}</td>
-                  <td><span className="badge-pill primary">{f.feeType}</span></td>
-                  <td>{f.name}</td>
-                  <td style={{ fontWeight: 600, color: '#60a5fa' }}>{f.amount}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {activeTab === 'scholarships' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-          {scholarships.map((s, idx) => (
-            <div key={idx} className="module-card">
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <span className="badge-pill success">{s.type}</span>
-                  <span className="code-pill">{s.recipients} Beneficiaries</span>
-                </div>
-                <h4>{s.name}</h4>
-                <div style={{ marginTop: '12px', fontSize: '13px', color: '#34d399', fontWeight: 600 }}>
-                  Benefit: {s.benefit}
-                </div>
-              </div>
+        <Card className="p-6 space-y-4">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-lg">Student Fee Challans Roster</CardTitle>
+              <CardDescription>
+                Click any challan to record payments, inspect fee breakdowns, or print receipts
+              </CardDescription>
             </div>
+
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/60 border border-slate-800">
+              {['ALL', 'UNPAID', 'PARTIAL', 'PAID'].map((st) => (
+                <button
+                  key={st}
+                  onClick={() => setSelectedStatus(st)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    selectedStatus === st
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
+          </CardHeader>
+
+          <DataTable
+            columns={invoiceColumns}
+            data={filteredInvoices}
+            isLoading={isLoading}
+            searchPlaceholder="Search challan #, student name, or ID..."
+            pageSize={10}
+            onRowClick={(i) => router.push(`/finance/invoices/${i.id}`)}
+          />
+        </Card>
+      )}
+
+      {/* 2. FEE STRUCTURES */}
+      {activeTab === 'structures' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {structures.map((s) => (
+            <Card key={s.id} hoverEffect className="p-6 space-y-4">
+              <div className="flex items-start justify-between">
+                <Badge variant="primary" size="sm">
+                  {s.feeType}
+                </Badge>
+                <span className="text-lg font-black text-white font-mono">
+                  {formatCurrency(s.amount)}
+                </span>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-100 text-base">{s.name}</h4>
+                <p className="text-xs text-slate-400 mt-1">{s.description || 'Institutional Tariff'}</p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-800/80 text-xs text-slate-400 flex items-center justify-between">
+                <span>Program:</span>
+                <span className="font-bold text-slate-200">{s.program?.name || 'All Programs'}</span>
+              </div>
+            </Card>
           ))}
         </div>
       )}
 
-      {activeTab === 'statement' && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 600 }}>Student Financial Running Ledger</h3>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                Muhammad Maaz (<span className="code-pill">STD-2026-0001</span>) | BSN Generic
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Net Outstanding Balance</div>
-              <div style={{ fontSize: '24px', fontWeight: 700, color: '#34d399' }}>PKR 0 (Clear)</div>
-            </div>
+      {/* 3. SCHOLARSHIPS */}
+      {activeTab === 'scholarships' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-end">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsScholarshipModalOpen(true)}
+              leftIcon={<Award className="w-4 h-4" />}
+            >
+              Create Scholarship Scheme
+            </Button>
           </div>
 
-          <table className="glass-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Transaction Type</th>
-                <th>Particulars / Description</th>
-                <th>Amount (PKR)</th>
-                <th>Running Balance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sampleLedger.map((l, idx) => (
-                <tr key={idx}>
-                  <td style={{ fontSize: '12px' }}>{l.date}</td>
-                  <td>
-                    <span className={`badge-pill ${l.type === 'DEBIT' ? 'warning' : 'success'}`}>
-                      {l.type}
-                    </span>
-                  </td>
-                  <td style={{ fontWeight: 500 }}>{l.desc}</td>
-                  <td style={{ fontWeight: 600, color: l.type === 'DEBIT' ? '#f87171' : '#34d399' }}>
-                    {l.amount}
-                  </td>
-                  <td style={{ fontWeight: 700 }}>PKR {l.balance}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {scholarships.map((sch) => (
+              <Card key={sch.id} hoverEffect className="p-6 space-y-3">
+                <div className="flex items-start justify-between">
+                  <Badge variant="purple" size="sm">
+                    {sch.type}
+                  </Badge>
+                  <span className="font-bold text-emerald-400 font-mono text-sm">
+                    {sch.percentage ? `${sch.percentage}% Waiver` : formatCurrency(sch.fixedAmount || 0)}
+                  </span>
+                </div>
+                <h4 className="font-bold text-white text-base">{sch.name}</h4>
+                <p className="text-xs text-slate-400">{sch.description}</p>
+                <div className="pt-2 border-t border-slate-800/80 text-xs text-slate-500">
+                  Beneficiaries: <strong className="text-slate-300">{sch._count?.studentScholarships || 0} Enrolled Students</strong>
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Modals */}
+      <InvoiceCreateModal
+        isOpen={isInvoiceModalOpen}
+        onClose={() => setIsInvoiceModalOpen(false)}
+        onSuccess={loadData}
+      />
+
+      <FeeStructureModal
+        isOpen={isStructureModalOpen}
+        onClose={() => setIsStructureModalOpen(false)}
+        onSuccess={loadData}
+      />
+
+      <ScholarshipModal
+        isOpen={isScholarshipModalOpen}
+        onClose={() => setIsScholarshipModalOpen(false)}
+        onSuccess={loadData}
+      />
     </div>
   );
 }
