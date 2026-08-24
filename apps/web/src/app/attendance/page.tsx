@@ -1,122 +1,157 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CalendarCheck,
-  UserCheck,
-  UserX,
+  Users,
+  CheckCircle2,
+  AlertTriangle,
   Clock,
-  CheckCircle,
-  AlertCircle,
-  FileSpreadsheet,
+  Filter,
+  ShieldCheck,
+  Sparkles,
+  BookOpen,
 } from 'lucide-react';
-import { StatsCard } from '../../components/StatsCard';
+import { Button } from '../../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { Select } from '../../components/ui/Select';
+import { Input } from '../../components/ui/Input';
+import { AttendanceMarkingPanel } from '../../features/attendance/components/AttendanceMarkingPanel';
+import { fetchClassAttendanceSheet } from '../../features/attendance/services/attendance.api';
+import { StudentRosterAttendanceRecord } from '../../features/attendance/types/attendance.types';
 
 export default function AttendancePage() {
-  const [selectedClass, setSelectedClass] = useState('BSN Year 1 - Sec A');
-  const [selectedSubject, setSelectedSubject] = useState('Fundamental Nursing Skills I');
+  const [selectedClassId, setSelectedClassId] = useState('cls-1');
+  const [selectedSubjectId, setSelectedSubjectId] = useState('sub-02');
+  const [selectedDate, setSelectedDate] = useState('2026-08-24');
+  const [records, setRecords] = useState<StudentRosterAttendanceRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const attendanceRoster = [
-    { id: 'STD-2026-0001', name: 'Muhammad Maaz', status: 'PRESENT', percentage: 94.5, eligible: true },
-    { id: 'STD-2026-0002', name: 'Ayesha Bibi', status: 'PRESENT', percentage: 91.2, eligible: true },
-    { id: 'STD-2026-0003', name: 'Usman Ali', status: 'LATE', percentage: 82.0, eligible: true },
-    { id: 'STD-2026-0004', name: 'Fatima Zahra', status: 'ABSENT', percentage: 68.5, eligible: false },
-    { id: 'STD-2026-0005', name: 'Zeeshan Khan', status: 'PRESENT', percentage: 88.0, eligible: true },
-  ];
+  const loadAttendance = async () => {
+    setIsLoading(true);
+    try {
+      const data = await fetchClassAttendanceSheet(
+        selectedClassId,
+        selectedSubjectId,
+        selectedDate,
+      );
+      setRecords(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAttendance();
+  }, [selectedClassId, selectedSubjectId, selectedDate]);
 
   return (
-    <div>
-      <div className="page-header">
-        <h2>Attendance Tracking & Eligibility Matrix</h2>
-        <p>Record daily class & lab attendance cohorts, compute PNC 75% examination eligibility thresholds, and monitor faculty logs.</p>
-      </div>
-
-      <div className="stats-grid">
-        <StatsCard label="Today's Attendance" value="92.4% Present" icon={CalendarCheck} iconBg="rgba(16, 185, 129, 0.15)" iconColor="#34d399" />
-        <StatsCard label="Exam Eligible (>75%)" value="812 Students" icon={UserCheck} iconBg="rgba(59, 130, 246, 0.15)" iconColor="#60a5fa" />
-        <StatsCard label="Low Attendance Warning" value="30 Students" icon={AlertCircle} iconBg="rgba(239, 68, 68, 0.15)" iconColor="#f87171" />
-        <StatsCard label="Faculty Check-In" value="46/48 Logged" icon={Clock} iconBg="rgba(245, 158, 11, 0.15)" iconColor="#fbbf24" />
-      </div>
-
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div>
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Class Section</label>
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#fff', border: '1px solid var(--border-color)', padding: '8px 12px', borderRadius: 'var(--radius-md)' }}
-            >
-              <option>BSN Year 1 - Sec A</option>
-              <option>BSN Year 1 - Sec B</option>
-              <option>BSN Year 2 - Sec A</option>
-            </select>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              Daily Academic & Clinical Attendance
+            </h1>
+            <Badge variant="success" size="sm">
+              <ShieldCheck className="w-3.5 h-3.5 mr-1 text-emerald-400" />
+              75% PNC Rule Active
+            </Badge>
           </div>
-
-          <div>
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Course Subject</label>
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#fff', border: '1px solid var(--border-color)', padding: '8px 12px', borderRadius: 'var(--radius-md)' }}
-            >
-              <option>Fundamental Nursing Skills I</option>
-              <option>Human Anatomy & Histology</option>
-              <option>Human Physiology</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Date</label>
-            <input
-              type="date"
-              defaultValue="2026-08-24"
-              style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#fff', border: '1px solid var(--border-color)', padding: '8px 12px', borderRadius: 'var(--radius-md)' }}
-            />
-          </div>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Optimized operational attendance roster with one-click batch marking and automated examination eligibility calculations.
+          </p>
         </div>
       </div>
 
-      <div className="table-container">
-        <table className="glass-table">
-          <thead>
-            <tr>
-              <th>Student ID</th>
-              <th>Student Name</th>
-              <th>Today's Status</th>
-              <th>Overall Subject Attendance</th>
-              <th>PNC Exam Eligibility (75%)</th>
-              <th>Quick Mark Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {attendanceRoster.map((r) => (
-              <tr key={r.id}>
-                <td><span className="code-pill">{r.id}</span></td>
-                <td style={{ fontWeight: 600 }}>{r.name}</td>
-                <td>
-                  <span className={`badge-pill ${r.status === 'PRESENT' ? 'success' : r.status === 'LATE' ? 'warning' : 'danger'}`}>
-                    {r.status}
-                  </span>
-                </td>
-                <td style={{ fontWeight: 600 }}>{r.percentage}%</td>
-                <td>
-                  <span className={`badge-pill ${r.eligible ? 'success' : 'danger'}`}>
-                    {r.eligible ? 'Eligible' : 'Warning (<75%)'}
-                  </span>
-                </td>
-                <td>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button className="code-pill" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: 'none', cursor: 'pointer' }}>Present</button>
-                    <button className="code-pill" style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', border: 'none', cursor: 'pointer' }}>Late</button>
-                    <button className="code-pill" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: 'none', cursor: 'pointer' }}>Absent</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* KPI Stats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Overall Attendance
+          </span>
+          <h3 className="text-2xl font-black text-white mt-1">91.4%</h3>
+          <p className="text-xs text-emerald-400 mt-2 font-medium">Across all sections</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Exam Eligible
+          </span>
+          <h3 className="text-2xl font-black text-emerald-400 mt-1">94.2%</h3>
+          <p className="text-xs text-slate-400 mt-2 font-medium">≥ 75% Compliance Rate</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Barred Candidates
+          </span>
+          <h3 className="text-2xl font-black text-rose-400 mt-1">4</h3>
+          <p className="text-xs text-rose-300 mt-2 font-medium">&lt; 75% Critical Warning</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Today Sessions
+          </span>
+          <h3 className="text-2xl font-black text-blue-400 mt-1">18</h3>
+          <p className="text-xs text-blue-300 mt-2 font-medium">Classroom & Hospital Wards</p>
+        </Card>
       </div>
+
+      {/* Filter Roster Selection Strip */}
+      <Card className="p-5 bg-slate-900/90 border-slate-800">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Select
+            label="Class Cohort / Section *"
+            value={selectedClassId}
+            onChange={(e) => setSelectedClassId(e.target.value)}
+            options={[
+              { value: 'cls-1', label: 'Generic BSN — Semester 2 (Section A)' },
+              { value: 'cls-2', label: 'Generic BSN — Semester 6 (Section A)' },
+              { value: 'cls-3', label: 'Post-RN BSN — Semester 3' },
+            ]}
+          />
+
+          <Select
+            label="Course / Clinical Module *"
+            value={selectedSubjectId}
+            onChange={(e) => setSelectedSubjectId(e.target.value)}
+            options={[
+              { value: 'sub-02', label: 'Fundamentals of Nursing II (FON-102)' },
+              { value: 'sub-08', label: 'Adult Health Nursing II (AHN-302)' },
+              { value: 'sub-09', label: 'Clinical Pharmacology (PHM-304)' },
+              { value: 'sub-05', label: 'Human Anatomy & Physiology II (ANAT-102)' },
+            ]}
+          />
+
+          <Input
+            label="Attendance Session Date *"
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+          />
+        </div>
+      </Card>
+
+      {/* Marking Roster Table Panel */}
+      {isLoading ? (
+        <div className="p-12 text-center text-xs text-slate-400">
+          Loading batch attendance sheet...
+        </div>
+      ) : (
+        <AttendanceMarkingPanel
+          records={records}
+          classId={selectedClassId}
+          subjectId={selectedSubjectId}
+          date={selectedDate}
+          onSuccess={loadAttendance}
+        />
+      )}
     </div>
   );
 }
