@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { cn, getInitials } from '../../lib/utils';
+import { NotificationBell } from '../../features/notifications/components/NotificationBell';
 
 export interface TopbarProps {
   onMobileMenuOpen?: () => void;
@@ -98,56 +99,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMobileMenuOpen, onQuickSearchO
         </Link>
 
         {/* Notification Bell with Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => {
-              setIsNotificationsOpen(!isNotificationsOpen);
-              setIsProfileOpen(false);
-            }}
-            className="relative p-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-colors"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-slate-950 animate-pulse" />
-          </button>
-
-          {isNotificationsOpen && (
-            <div className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl bg-slate-900 border border-slate-700/80 shadow-2xl overflow-hidden z-50 animate-scale-in">
-              <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/60">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-slate-100">Notifications</h4>
-                  <Badge variant="primary" size="sm">
-                    2 New
-                  </Badge>
-                </div>
-                <button className="text-xs text-blue-400 hover:underline">Mark all read</button>
-              </div>
-
-              <div className="divide-y divide-slate-800/60 max-h-80 overflow-y-auto">
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className={cn(
-                      'p-4 hover:bg-slate-800/50 transition-colors cursor-pointer flex gap-3 items-start',
-                      n.unread ? 'bg-slate-800/20' : '',
-                    )}
-                  >
-                    <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 shrink-0">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                      <p className="text-xs font-bold text-slate-100">{n.title}</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">{n.description}</p>
-                      <span className="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {n.time}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <NotificationBell />
 
         {/* User Profile Menu */}
         <div className="relative">
