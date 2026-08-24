@@ -1,387 +1,434 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Stethoscope,
   Building2,
-  Calendar,
+  Users,
   CheckCircle2,
   Clock,
   ShieldCheck,
+  Plus,
+  ArrowRight,
+  Sparkles,
   Award,
-  AlertCircle,
-  FileCheck,
-  Users,
 } from 'lucide-react';
-import { StatsCard } from '../../components/StatsCard';
+import { DataTable, Column } from '../../components/tables/DataTable';
+import { Button } from '../../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { ClinicalProgressRing } from '../../features/clinical/components/ClinicalProgressRing';
+import { ClinicalSiteModal } from '../../features/clinical/components/ClinicalSiteModal';
+import { RotationCreateModal } from '../../features/clinical/components/RotationCreateModal';
+import { SkillVerificationModal } from '../../features/clinical/components/SkillVerificationModal';
+import {
+  fetchClinicalSites,
+  fetchClinicalRotations,
+  fetchNursingSkills,
+  fetchSupervisorDashboard,
+} from '../../features/clinical/services/clinical.api';
+import {
+  ClinicalSite,
+  ClinicalRotation,
+  NursingSkill,
+  SupervisorPendingVerification,
+} from '../../features/clinical/types/clinical.types';
+import { formatDate } from '../../lib/utils';
+
+type ClinicalTab = 'rotations' | 'sites' | 'skills' | 'supervisor';
 
 export default function ClinicalPage() {
-  const [activeTab, setActiveTab] = useState<'sites' | 'rotations' | 'skills' | 'logbook' | 'progress'>('progress');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<ClinicalTab>('rotations');
+  const [rotations, setRotations] = useState<ClinicalRotation[]>([]);
+  const [sites, setSites] = useState<ClinicalSite[]>([]);
+  const [skills, setSkills] = useState<NursingSkill[]>([]);
+  const [pendingQueue, setPendingQueue] = useState<SupervisorPendingVerification[]>([]);
+  const [selectedVerification, setSelectedVerification] =
+    useState<SupervisorPendingVerification | null>(null);
 
-  const sites = [
-    {
-      name: 'Holy Family Teaching Hospital',
-      type: 'HOSPITAL',
-      city: 'Rawalpindi',
-      address: 'Murree Road, Rawalpindi',
-      contact: 'Dr. Shahzad (MS) | +92 51 9290321',
-      activeWards: 'ICU, Surgical Ward 3, Pediatric Emergency, CCU',
-      rotatorsCount: 64,
-    },
-    {
-      name: 'Benazir Bhutto District Headquarters Hospital',
-      type: 'HOSPITAL',
-      city: 'Rawalpindi',
-      address: 'Chandni Chowk, Murree Road',
-      contact: 'Dr. Farooq (AMS) | +92 51 9290300',
-      activeWards: 'Medical Ward 2, Orthopedic Unit, Labour Room',
-      rotatorsCount: 42,
-    },
-    {
-      name: 'Rural Community Health Center (Tarlai Kalan)',
-      type: 'COMMUNITY_CENTER',
-      city: 'Islamabad',
-      address: 'Lehtrar Road, Tarlai Kalan',
-      contact: 'Dr. Ayesha (In-charge) | +92 51 2244111',
-      activeWards: 'EPI Vaccination, Maternal Child Health, Outpatient',
-      rotatorsCount: 18,
-    },
-  ];
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSiteModalOpen, setIsSiteModalOpen] = useState(false);
+  const [isRotationModalOpen, setIsRotationModalOpen] = useState(false);
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
 
-  const rotations = [
-    {
-      studentId: 'STD-2026-0001',
-      studentName: 'Muhammad Maaz',
-      program: 'BSN Generic (Year 2)',
-      site: 'Holy Family Teaching Hospital',
-      ward: 'Intensive Care Unit (ICU)',
-      dates: '2026-09-01 - 2026-09-30',
-      supervisor: 'Prof. Dr. Nusrat Parveen',
-      shift: 'Morning (08:00 - 14:00)',
-      status: 'ACTIVE',
-    },
-    {
-      studentId: 'STD-2026-0002',
-      studentName: 'Ayesha Bibi',
-      program: 'BSN Generic (Year 2)',
-      site: 'Benazir Bhutto Hospital',
-      ward: 'Labour & Delivery Suite',
-      dates: '2026-09-01 - 2026-09-30',
-      supervisor: 'Ms. Samina Noreen',
-      shift: 'Morning (08:00 - 14:00)',
-      status: 'ACTIVE',
-    },
-    {
-      studentId: 'STD-2025-0144',
-      studentName: 'Zainab Fatima',
-      program: 'Post-RN BSN (Year 2)',
-      site: 'Holy Family Teaching Hospital',
-      ward: 'Surgical Ward 3 (Post-Op)',
-      dates: '2026-08-01 - 2026-08-31',
-      supervisor: 'Dr. Tariq Mahmood',
-      shift: 'Evening (14:00 - 20:00)',
-      status: 'COMPLETED',
-    },
-  ];
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [rRes, sRes, skRes, supRes] = await Promise.all([
+        fetchClinicalRotations(),
+        fetchClinicalSites(),
+        fetchNursingSkills(),
+        fetchSupervisorDashboard('fac-01'),
+      ]);
+      setRotations(rRes.data);
+      setSites(sRes);
+      setSkills(skRes);
+      setPendingQueue(supRes.pendingQueue);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const skillsCatalog = [
-    { name: 'Intravenous (IV) Cannulation & Flow Calibration', category: 'Medication Administration', requiredLevel: 'Competent', verifierDesignation: 'Clinical Preceptor' },
-    { name: 'Female & Male Urinary Catheterization (Foley)', category: 'Patient Assessment & Care', requiredLevel: 'Competent', verifierDesignation: 'Nursing Supervisor' },
-    { name: 'Sterile Surgical Wound Dressing & Suture Removal', category: 'Wound Care & Asepsis', requiredLevel: 'Competent', verifierDesignation: 'Ward Instructor' },
-    { name: '12-Lead Electrocardiogram (ECG) Recording', category: 'Emergency & Critical Care', requiredLevel: 'Competent', verifierDesignation: 'ICU Charge Nurse' },
-    { name: 'Nasogastric (NG) Tube Insertion & Gavage Feeding', category: 'Basic Nursing Care', requiredLevel: 'Competent', verifierDesignation: 'Clinical Instructor' },
-  ];
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const logbookRecords = [
+  const rotationColumns: Column<ClinicalRotation>[] = [
     {
-      studentName: 'Muhammad Maaz',
-      skill: 'Intravenous (IV) Cannulation & Flow Calibration',
-      site: 'Holy Family Hospital - ICU',
-      date: '2026-08-22',
-      status: 'VERIFIED',
-      score: '95 / 100',
-      verifier: 'Prof. Dr. Nusrat Parveen',
-      remarks: 'Perfect aseptic vein entry on 1st attempt. Flow rate calibrated accurately.',
+      header: 'Nursing Candidate',
+      accessorKey: 'studentName',
+      sortable: true,
+      cell: (r) => (
+        <div className="flex items-center gap-3">
+          <img
+            src={r.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150'}
+            alt={r.studentName}
+            className="w-8 h-8 rounded-lg object-cover border border-slate-700 shrink-0"
+          />
+          <div>
+            <p className="font-bold text-slate-100">{r.studentName}</p>
+            <span className="font-mono text-blue-400 text-[11px]">{r.studentRegId}</span>
+          </div>
+        </div>
+      ),
     },
     {
-      studentName: 'Muhammad Maaz',
-      skill: 'Sterile Surgical Wound Dressing & Suture Removal',
-      site: 'Holy Family Hospital - Surgical Ward 3',
-      date: '2026-08-20',
-      status: 'VERIFIED',
-      score: '90 / 100',
-      verifier: 'Ms. Samina Noreen',
-      remarks: 'Good sterile barrier maintenance. Debridement technique followed.',
+      header: 'Hospital & Ward Posting',
+      sortable: true,
+      cell: (r) => (
+        <div>
+          <p className="font-semibold text-slate-200">{r.siteName}</p>
+          <p className="text-xs text-purple-400">
+            {r.department} • {r.ward}
+          </p>
+        </div>
+      ),
     },
     {
-      studentName: 'Ayesha Bibi',
-      skill: 'Female & Male Urinary Catheterization (Foley)',
-      site: 'Benazir Bhutto Hospital - Labour Suite',
-      date: '2026-08-23',
-      status: 'IN_PROGRESS',
-      score: 'Pending',
-      verifier: 'Awaiting Preceptor Sign-off',
-      remarks: 'Procedure completed under direct bedside supervision.',
+      header: 'Supervisor',
+      accessorKey: 'facultyName',
+      sortable: true,
+      cell: (r) => <span className="text-slate-300 font-medium">{r.facultyName || 'Dr. Sarah Khan'}</span>,
+    },
+    {
+      header: 'Term Duration',
+      sortable: true,
+      cell: (r) => (
+        <div className="text-xs font-mono text-slate-400">
+          <span>{formatDate(r.startDate)}</span>
+          <span className="block text-slate-500">to {formatDate(r.endDate)}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Status',
+      accessorKey: 'status',
+      cell: (r) => (
+        <Badge variant={r.status === 'ACTIVE' ? 'success' : 'neutral'} size="sm" dot>
+          {r.status}
+        </Badge>
+      ),
+    },
+    {
+      header: 'Action',
+      cell: (r) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push(`/clinical/student/${r.studentId}`)}
+          rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+        >
+          Clinical Portfolio
+        </Button>
+      ),
     },
   ];
 
   return (
-    <div>
-      <div className="page-header">
-        <h2>Clinical Training, Hospital Rotations & Skills Logbook</h2>
-        <p>Specialized Nursing & Allied Health management: hospital ward postings, PNC procedural competencies, and preceptor sign-offs.</p>
-      </div>
-
-      <div className="stats-grid">
-        <StatsCard label="Partner Hospitals" value="8 Teaching Sites" icon={Building2} iconBg="rgba(59, 130, 246, 0.15)" iconColor="#60a5fa" />
-        <StatsCard label="Active Ward Rotators" value="124 Students" icon={Users} iconBg="rgba(16, 185, 129, 0.15)" iconColor="#34d399" />
-        <StatsCard label="Verified Skills Logged" value="1,840 Sign-offs" icon={CheckCircle2} iconBg="rgba(139, 92, 246, 0.15)" iconColor="#a78bfa" />
-        <StatsCard label="Clinical Hours Logged" value="28,400 Hours" icon={Clock} iconBg="rgba(245, 158, 11, 0.15)" iconColor="#fbbf24" />
-      </div>
-
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-        <button
-          onClick={() => setActiveTab('progress')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'progress' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'progress' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Clinical Hours & Competency Progress
-        </button>
-        <button
-          onClick={() => setActiveTab('rotations')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'rotations' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'rotations' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Ward Rotations ({rotations.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('logbook')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'logbook' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'logbook' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Skills Logbook & Verifications ({logbookRecords.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('skills')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'skills' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'skills' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Procedural Skills Catalog
-        </button>
-        <button
-          onClick={() => setActiveTab('sites')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'sites' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            padding: '6px 12px',
-            borderBottom: activeTab === 'sites' ? '2px solid var(--accent-primary)' : 'none',
-          }}
-        >
-          Hospital Sites ({sites.length})
-        </button>
-      </div>
-
-      {activeTab === 'progress' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-              <div>
-                <span className="code-pill">PNC BSN Nursing Competency Record</span>
-                <h3 style={{ fontSize: '18px', fontWeight: 600, marginTop: '8px' }}>Muhammad Maaz (STD-2026-0001)</h3>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  Bachelor of Science in Nursing (BSN Generic - 4 Years)
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <span className="badge-pill success">On Track for Graduation</span>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Clinical Hospital Hours</div>
-                <div style={{ fontSize: '22px', fontWeight: 700, color: '#60a5fa', marginTop: '4px' }}>480 / 1,200 Hrs</div>
-                <div style={{ fontSize: '11px', color: '#34d399', marginTop: '6px' }}>40.0% Required Hours Completed</div>
-              </div>
-
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Verified Procedural Skills</div>
-                <div style={{ fontSize: '22px', fontWeight: 700, color: '#34d399', marginTop: '4px' }}>38 / 50 Skills</div>
-                <div style={{ fontSize: '11px', color: '#60a5fa', marginTop: '6px' }}>76.0% Competency Portfolio Verified</div>
-              </div>
-
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Current Active Ward Posting</div>
-                <div style={{ fontSize: '16px', fontWeight: 700, marginTop: '4px' }}>Intensive Care Unit (ICU)</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>Holy Family Teaching Hospital</div>
-              </div>
-            </div>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              Clinical Training & Nursing Logbook
+            </h1>
+            <Badge variant="success" size="sm">
+              <ShieldCheck className="w-3.5 h-3.5 mr-1 text-emerald-400" />
+              1,200 Hours PNC Requirement
+            </Badge>
           </div>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Manage hospital ward rotations, bedside procedural competencies, and authorized faculty supervisor verifications.
+          </p>
         </div>
-      )}
 
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSiteModalOpen(true)}
+            leftIcon={<Building2 className="w-4 h-4" />}
+          >
+            Add Hospital Site
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setIsRotationModalOpen(true)}
+            leftIcon={<Plus className="w-4 h-4" />}
+          >
+            Assign Rotation
+          </Button>
+        </div>
+      </div>
+
+      {/* KPI Stats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Active Rotators
+          </span>
+          <h3 className="text-2xl font-black text-white mt-1">184</h3>
+          <p className="text-xs text-emerald-400 mt-2 font-medium">Across 4 Teaching Units</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Partner Hospitals
+          </span>
+          <h3 className="text-2xl font-black text-white mt-1">3</h3>
+          <p className="text-xs text-blue-400 mt-2 font-medium">Tertiary Clinical Sites</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Pending Sign-offs
+          </span>
+          <h3 className="text-2xl font-black text-amber-400 mt-1">4</h3>
+          <p className="text-xs text-amber-300 mt-2 font-medium">Supervisor Queue</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Total Clinical Hours
+          </span>
+          <h3 className="text-2xl font-black text-purple-400 mt-1">24,500+</h3>
+          <p className="text-xs text-purple-300 mt-2 font-medium">Recorded in Logbook</p>
+        </Card>
+      </div>
+
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
+        {[
+          { id: 'rotations' as const, label: 'Active Ward Rotations', icon: Stethoscope },
+          { id: 'sites' as const, label: 'Hospital Partner Sites', icon: Building2, count: sites.length },
+          { id: 'skills' as const, label: 'PNC Skills Catalog', icon: Award, count: skills.length },
+          { id: 'supervisor' as const, label: 'Supervisor Sign-off Queue', icon: ShieldCheck, badge: `${pendingQueue.length} Pending` },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-amber-400'
+                  }`}
+                >
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Panels */}
+
+      {/* 1. WARD ROTATIONS */}
       {activeTab === 'rotations' && (
-        <div className="table-container">
-          <table className="glass-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Clinical Hospital Site</th>
-                <th>Assigned Ward / Dept</th>
-                <th>Rotation Duration</th>
-                <th>Clinical Supervisor</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rotations.map((r, idx) => (
-                <tr key={idx}>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{r.studentName}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{r.studentId} | {r.program}</div>
-                  </td>
-                  <td style={{ fontWeight: 500 }}>{r.site}</td>
-                  <td><span className="code-pill">{r.ward}</span></td>
-                  <td>
-                    <div style={{ fontSize: '12px' }}>{r.dates}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{r.shift}</div>
-                  </td>
-                  <td>{r.supervisor}</td>
-                  <td>
-                    <span className={`badge-pill ${r.status === 'ACTIVE' ? 'success' : 'primary'}`}>
-                      {r.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {activeTab === 'logbook' && (
-        <div className="table-container">
-          <table className="glass-table">
-            <thead>
-              <tr>
-                <th>Student Name</th>
-                <th>Procedural Skill Performed</th>
-                <th>Hospital Site & Ward</th>
-                <th>Date</th>
-                <th>Assessment Score</th>
-                <th>Clinical Supervisor Sign-off</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logbookRecords.map((l, idx) => (
-                <tr key={idx}>
-                  <td style={{ fontWeight: 600 }}>{l.studentName}</td>
-                  <td><span style={{ fontWeight: 500 }}>{l.skill}</span></td>
-                  <td><span className="code-pill">{l.site}</span></td>
-                  <td style={{ fontSize: '12px' }}>{l.date}</td>
-                  <td style={{ fontWeight: 600, color: '#34d399' }}>{l.score}</td>
-                  <td>
-                    <div style={{ fontWeight: 500 }}>{l.verifier}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{l.remarks}</div>
-                  </td>
-                  <td>
-                    <span className={`badge-pill ${l.status === 'VERIFIED' ? 'success' : 'warning'}`}>
-                      {l.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {activeTab === 'skills' && (
-        <div className="table-container">
-          <table className="glass-table">
-            <thead>
-              <tr>
-                <th>Nursing Skill Name</th>
-                <th>Competency Category</th>
-                <th>Required Competency Level</th>
-                <th>Authorized Verifier</th>
-              </tr>
-            </thead>
-            <tbody>
-              {skillsCatalog.map((s, idx) => (
-                <tr key={idx}>
-                  <td style={{ fontWeight: 600 }}>{s.name}</td>
-                  <td><span className="badge-pill primary">{s.category}</span></td>
-                  <td><span className="code-pill">{s.requiredLevel}</span></td>
-                  <td>{s.verifierDesignation}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {activeTab === 'sites' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px' }}>
-          {sites.map((st, idx) => (
-            <div key={idx} className="module-card">
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <span className="badge-pill primary">{st.type}</span>
-                  <span className="code-pill">{st.rotatorsCount} Active Rotators</span>
-                </div>
-                <h4>{st.name}</h4>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  {st.address}, {st.city}
-                </div>
-                <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  <strong>Affiliated Wards:</strong> {st.activeWards}
-                </div>
-                <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                  <strong>Contact:</strong> {st.contact}
-                </div>
-              </div>
+        <Card className="p-6 space-y-4">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-lg">Clinical Rotation Roster</CardTitle>
+              <CardDescription>
+                Live hospital ward postings, shift timings, and student portfolios
+              </CardDescription>
             </div>
+          </CardHeader>
+
+          <DataTable
+            columns={rotationColumns}
+            data={rotations}
+            isLoading={isLoading}
+            searchPlaceholder="Search by student, ward, or hospital..."
+            pageSize={10}
+            onRowClick={(r) => router.push(`/clinical/student/${r.studentId}`)}
+          />
+        </Card>
+      )}
+
+      {/* 2. PARTNER SITES */}
+      {activeTab === 'sites' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {sites.map((s) => (
+            <Card key={s.id} hoverEffect className="p-6 space-y-4">
+              <div className="flex items-start justify-between">
+                <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <Badge variant="success" size="sm">
+                  {s.type}
+                </Badge>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-100 text-base">{s.name}</h4>
+                <p className="text-xs text-slate-400 mt-1">{s.address}, {s.city}</p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-800/80 text-xs text-slate-300 space-y-1">
+                <p className="text-[11px] text-slate-400">Contact Person:</p>
+                <p className="font-semibold text-white">{s.contactPerson || 'Dr. Medical Superintendent'}</p>
+                <p className="font-mono text-blue-400">{s.phone}</p>
+              </div>
+            </Card>
           ))}
         </div>
       )}
+
+      {/* 3. SKILLS CATALOG */}
+      {activeTab === 'skills' && (
+        <Card className="p-6 space-y-4">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-lg">PNC Institutional Procedural Competencies</CardTitle>
+              <CardDescription>
+                Standardized surgical, critical care, and general nursing procedural requirements
+              </CardDescription>
+            </div>
+          </CardHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {skills.map((sk) => (
+              <div
+                key={sk.id}
+                className="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-blue-400">{sk.category}</span>
+                  <Badge variant="purple" size="sm">
+                    {sk.requiredAttempts} Required Attempts
+                  </Badge>
+                </div>
+                <h4 className="font-bold text-slate-100 text-sm">{sk.name}</h4>
+                <p className="text-xs text-slate-400">{sk.description}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* 4. SUPERVISOR QUEUE */}
+      {activeTab === 'supervisor' && (
+        <Card className="p-6 space-y-6">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-lg">Pending Supervisor Clinical Sign-off Queue</CardTitle>
+              <CardDescription>
+                Bedside nursing skills submitted by candidates awaiting evaluator verification
+              </CardDescription>
+            </div>
+          </CardHeader>
+
+          {pendingQueue.length > 0 ? (
+            <div className="divide-y divide-slate-800/60">
+              {pendingQueue.map((item) => (
+                <div
+                  key={item.id}
+                  className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <img
+                      src={
+                        item.avatarUrl ||
+                        'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150'
+                      }
+                      alt={item.studentName}
+                      className="w-10 h-10 rounded-xl object-cover border border-slate-700"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-slate-100 text-sm">{item.skillName}</h4>
+                        <Badge variant="purple" size="sm">
+                          Attempt #{item.attemptNumber}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Candidate: <strong className="text-slate-200">{item.studentName}</strong> (
+                        {item.studentRegId}) • {item.wardName}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedVerification(item);
+                      setIsVerifyModalOpen(true);
+                    }}
+                    leftIcon={<ShieldCheck className="w-4 h-4" />}
+                  >
+                    Evaluate & Sign
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-xs text-slate-500">
+              All student logbook procedure attempts have been verified. No pending sign-offs.
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Modals */}
+      <ClinicalSiteModal
+        isOpen={isSiteModalOpen}
+        onClose={() => setIsSiteModalOpen(false)}
+        onSuccess={loadData}
+      />
+
+      <RotationCreateModal
+        isOpen={isRotationModalOpen}
+        onClose={() => setIsRotationModalOpen(false)}
+        onSuccess={loadData}
+      />
+
+      <SkillVerificationModal
+        isOpen={isVerifyModalOpen}
+        onClose={() => setIsVerifyModalOpen(false)}
+        item={selectedVerification}
+        onSuccess={loadData}
+      />
     </div>
   );
 }
