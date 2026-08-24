@@ -15,40 +15,55 @@ export class RedisCacheStore implements CacheStore, OnModuleDestroy {
     this.initialize();
   }
 
+  private hasLoggedWarning = false;
+
   private initialize(): void {
     try {
+      const redisOptions = {
+        lazyConnect: true,
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+        retryStrategy: (times: number) => {
+          if (times > 3) {
+            return null; // Stop reconnecting after 3 attempts if Redis is offline
+          }
+          return Math.min(times * 1000, 3000);
+        },
+      };
+
       if (this.options.redisUrl) {
-        this.client = new Redis(this.options.redisUrl, {
-          lazyConnect: true,
-          maxRetriesPerRequest: 2,
-          enableOfflineQueue: false,
-        });
+        this.client = new Redis(this.options.redisUrl, redisOptions);
       } else if (this.options.redisHost) {
         this.client = new Redis({
           host: this.options.redisHost,
           port: this.options.redisPort || 6379,
           password: this.options.redisPassword,
           db: this.options.redisDb || 0,
-          lazyConnect: true,
-          maxRetriesPerRequest: 2,
-          enableOfflineQueue: false,
+          ...redisOptions,
         });
       }
 
       if (this.client) {
         this.client.on('connect', () => {
           this.isConnected = true;
+          this.hasLoggedWarning = false;
           this.logger.log('⚡ Redis Cache Store connected successfully');
         });
 
         this.client.on('error', (err) => {
           this.isConnected = false;
-          this.logger.warn(`Redis connection error: ${err.message}. Falling back to in-memory cache.`);
+          if (!this.hasLoggedWarning) {
+            this.hasLoggedWarning = true;
+            this.logger.warn(`Redis is offline (${err.message || 'connection refused'}). Cleanly falling back to In-Memory Cache.`);
+          }
         });
 
         this.client.connect().catch((err) => {
           this.isConnected = false;
-          this.logger.warn(`Redis initial connect failed: ${err.message}. Using in-memory fallback.`);
+          if (!this.hasLoggedWarning) {
+            this.hasLoggedWarning = true;
+            this.logger.warn(`Redis initial connect failed (${err.message || 'offline'}). Using In-Memory fallback.`);
+          }
         });
       }
     } catch (err: any) {
