@@ -20,6 +20,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { cn, getInitials } from '../../lib/utils';
 import { NotificationBell } from '../../features/notifications/components/NotificationBell';
+import { ThemeToggle } from '../ui/ThemeToggle';
 
 export interface TopbarProps {
   onMobileMenuOpen?: () => void;
@@ -97,6 +98,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onMobileMenuOpen, onQuickSearchO
           <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
           <span>Public Portal</span>
         </Link>
+
+        {/* Theme Mode Selector (Light / Dark / System) */}
+        <ThemeToggle />
 
         {/* Notification Bell with Dropdown */}
         <NotificationBell />
