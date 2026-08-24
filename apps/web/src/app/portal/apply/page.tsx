@@ -1,266 +1,198 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import {
-  GraduationCap,
-  Sparkles,
-  ArrowLeft,
-  CheckCircle2,
-  FileText,
-  User,
-  Mail,
-  Phone,
-  BookOpen,
-} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, GraduationCap, CheckCircle2, ShieldCheck, Send } from 'lucide-react';
+import { Button } from '../../../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription } from '../../../components/ui/Card';
+import { Input } from '../../../components/ui/Input';
+import { Select } from '../../../components/ui/Select';
+import { Badge } from '../../../components/ui/Badge';
+import { submitAdmission } from '../../../features/portal/services/portal.api';
+import { PublicAdmissionDto } from '../../../features/portal/types/portal.types';
+import { useToast } from '../../../context/ToastContext';
 
-export default function PublicAdmissionApplyPage() {
-  const [submitted, setSubmitted] = useState(false);
-  const [appRef, setAppRef] = useState('');
-  const [formData, setFormData] = useState({
-    programId: 'BSN-GEN',
+export default function PublicApplyPage() {
+  const router = useRouter();
+  const toast = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [trackingRef, setTrackingRef] = useState('');
+
+  const [form, setForm] = useState<PublicAdmissionDto>({
+    programId: 'prog-01',
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
     cnic: '',
-    gender: 'Female',
     previousInstitute: '',
-    marksObtained: '',
-    totalMarks: '1100',
+    marksObtained: 950,
+    totalMarks: 1100,
     notes: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const generatedRef = `APP-2026-${Math.floor(100000 + Math.random() * 900000)}`;
-    setAppRef(generatedRef);
-    setSubmitted(true);
+    if (!form.firstName || !form.email || !form.phone) {
+      toast.error('Validation Error', 'First name, email, and phone number are required.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await submitAdmission(form);
+      const ref = res?.referenceNo || `ADM-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+      setTrackingRef(ref);
+      setIsSubmitted(true);
+      toast.success('Application Submitted', `Your tracking ID is ${ref}.`);
+    } catch (err: any) {
+      toast.error('Submission Error', err?.message || 'Failed to submit application');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  return (
-    <div style={{ maxWidth: '750px', margin: '0 auto', paddingBottom: '40px' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <Link href="/portal" style={{ color: 'var(--text-muted)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none', marginBottom: '12px' }}>
-          <ArrowLeft size={14} /> Back to Public Portal
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-          <div style={{ background: 'rgba(59, 130, 246, 0.15)', padding: '10px', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-            <GraduationCap size={26} color="var(--accent-primary)" />
-          </div>
-          <div>
-            <h1 style={{ fontSize: '24px', fontWeight: 800 }}>Online Admission Application (Fall 2026)</h1>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              Submit your credentials for accredited Generic BSN, Post-RN, LHV, or CNA programs.
-            </p>
-          </div>
+  if (isSubmitted) {
+    return (
+      <div className="max-w-xl mx-auto py-12 px-4 animate-fade-in text-center space-y-6">
+        <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center border border-emerald-500/30">
+          <CheckCircle2 className="w-8 h-8" />
         </div>
+
+        <div className="space-y-2">
+          <h2 className="text-2xl font-black text-white">Application Received!</h2>
+          <p className="text-xs text-slate-300">
+            Thank you for applying to the College of Nursing & Health Sciences. Your application has been logged into our admissions registry.
+          </p>
+        </div>
+
+        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+          <span className="text-xs font-semibold text-slate-400 uppercase">Your Tracking Reference #</span>
+          <p className="text-2xl font-mono font-black text-blue-400">{trackingRef}</p>
+          <span className="text-[11px] text-slate-500 block">
+            Keep this number safe for merit list verification and admission counseling.
+          </span>
+        </div>
+
+        <Button variant="primary" size="sm" onClick={() => router.push('/portal')}>
+          Back to Public Portal
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in max-w-3xl mx-auto">
+      <div className="flex items-center justify-between">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push('/portal')}
+          leftIcon={<ArrowLeft className="w-4 h-4" />}
+        >
+          Back to Portal
+        </Button>
+
+        <Badge variant="success" size="sm">
+          <ShieldCheck className="w-3.5 h-3.5 mr-1" />
+          Fall 2026 Admissions Open
+        </Badge>
       </div>
 
-      {submitted ? (
-        <div
-          style={{
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(59, 130, 246, 0.08))',
-            border: '2px solid rgba(16, 185, 129, 0.4)',
-            borderRadius: 'var(--radius-lg)',
-            padding: '36px',
-            textAlign: 'center',
-          }}
-        >
-          <CheckCircle2 size={48} color="#34d399" style={{ margin: '0 auto 16px auto' }} />
-          <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '8px', color: '#fff' }}>Application Successfully Received</h2>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '500px', margin: '0 auto 20px auto', lineHeight: 1.6 }}>
-            Thank you, <strong>{formData.firstName}</strong>. Your online admission application has been registered with the admissions committee.
-          </p>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card className="p-6 lg:p-8 space-y-6">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-xl">Online Admission Application</CardTitle>
+              <CardDescription>
+                Apply for Bachelor of Science in Nursing (BSN) or Post-RN degree programs
+              </CardDescription>
+            </div>
+          </CardHeader>
 
-          <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '14px', borderRadius: 'var(--radius-md)', display: 'inline-block', marginBottom: '24px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block' }}>Your Application Tracking Reference:</span>
-            <span style={{ fontSize: '20px', fontWeight: 800, color: '#38bdf8' }}>{appRef}</span>
-          </div>
+          <Select
+            label="Degree Program *"
+            value={form.programId}
+            onChange={(e) => setForm({ ...form, programId: e.target.value })}
+            options={[
+              { value: 'prog-01', label: 'Bachelor of Science in Nursing (Generic BSN — 4 Years)' },
+              { value: 'prog-02', label: 'Post-RN Bachelor of Science in Nursing (2 Years)' },
+            ]}
+          />
 
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '24px' }}>
-            A confirmation email has been dispatched to <strong>{formData.email}</strong> with entry test details and interview schedule.
-          </p>
-
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
-            <Link
-              href="/portal"
-              style={{
-                background: 'var(--accent-primary-gradient)',
-                color: '#fff',
-                padding: '10px 20px',
-                borderRadius: 'var(--radius-md)',
-                fontWeight: 600,
-                fontSize: '13px',
-                textDecoration: 'none',
-              }}
-            >
-              Return to Homepage
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '28px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-            1. Select Degree / Diploma Program
-          </h3>
-
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Target Academic Program *</label>
-            <select
-              value={formData.programId}
-              onChange={(e) => setFormData({ ...formData, programId: e.target.value })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="First Name *"
+              placeholder="e.g. Amina"
+              value={form.firstName}
+              onChange={(e) => setForm({ ...form, firstName: e.target.value })}
               required
-              style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', color: '#fff', padding: '10px', borderRadius: 'var(--radius-md)' }}
-            >
-              <option value="BSN-GEN">Bachelor of Science in Nursing (Generic BSN - 4 Years)</option>
-              <option value="POST-RN">Post-RN BSN Degree Program (2 Years)</option>
-              <option value="DIP-LHV">Diploma in Lady Health Visitor (LHV - 2 Years)</option>
-              <option value="CNA">Certified Nursing Assistant (CNA - 2 Years)</option>
-            </select>
-          </div>
-
-          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-            2. Personal & Contact Information
-          </h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>First Name *</label>
-              <input
-                type="text"
-                required
-                value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                placeholder="e.g. Amina"
-                style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', color: '#fff', padding: '10px', borderRadius: 'var(--radius-md)' }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Last / Family Name</label>
-              <input
-                type="text"
-                value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                placeholder="e.g. Bibi"
-                style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', color: '#fff', padding: '10px', borderRadius: 'var(--radius-md)' }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Email Address *</label>
-              <input
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="e.g. student@example.com"
-                style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', color: '#fff', padding: '10px', borderRadius: 'var(--radius-md)' }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Mobile Contact Phone *</label>
-              <input
-                type="tel"
-                required
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="e.g. +923001234567"
-                style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', color: '#fff', padding: '10px', borderRadius: 'var(--radius-md)' }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-            <div>
-              <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>CNIC / B-Form Number *</label>
-              <input
-                type="text"
-                required
-                value={formData.cnic}
-                onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
-                placeholder="e.g. 37405-1234567-8"
-                style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', color: '#fff', padding: '10px', borderRadius: 'var(--radius-md)' }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Gender</label>
-              <select
-                value={formData.gender}
-                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', color: '#fff', padding: '10px', borderRadius: 'var(--radius-md)' }}
-              >
-                <option value="Female">Female</option>
-                <option value="Male">Male</option>
-              </select>
-            </div>
-          </div>
-
-          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-            3. Prior Academic Qualifications
-          </h3>
-
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Previous College / High School Institute *</label>
-            <input
-              type="text"
-              required
-              value={formData.previousInstitute}
-              onChange={(e) => setFormData({ ...formData, previousInstitute: e.target.value })}
-              placeholder="e.g. Govt Degree College for Women / Army Public School"
-              style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', color: '#fff', padding: '10px', borderRadius: 'var(--radius-md)' }}
+            />
+            <Input
+              label="Last Name"
+              placeholder="e.g. Bibi"
+              value={form.lastName}
+              onChange={(e) => setForm({ ...form, lastName: e.target.value })}
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-            <div>
-              <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Marks Obtained (FSc / Matric) *</label>
-              <input
-                type="number"
-                required
-                value={formData.marksObtained}
-                onChange={(e) => setFormData({ ...formData, marksObtained: e.target.value })}
-                placeholder="e.g. 960"
-                style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', color: '#fff', padding: '10px', borderRadius: 'var(--radius-md)' }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Total Maximum Marks *</label>
-              <input
-                type="number"
-                required
-                value={formData.totalMarks}
-                onChange={(e) => setFormData({ ...formData, totalMarks: e.target.value })}
-                placeholder="e.g. 1100"
-                style={{ width: '100%', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', color: '#fff', padding: '10px', borderRadius: 'var(--radius-md)' }}
-              />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Input
+              label="Email Address *"
+              type="email"
+              placeholder="e.g. amina@example.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              required
+            />
+            <Input
+              label="Mobile Phone *"
+              placeholder="e.g. +92 300 1234567"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              required
+            />
+            <Input
+              label="CNIC / B-Form Number"
+              placeholder="e.g. 37405-1234567-8"
+              value={form.cnic}
+              onChange={(e) => setForm({ ...form, cnic: e.target.value })}
+            />
           </div>
 
-          <button
-            type="submit"
-            style={{
-              width: '100%',
-              background: 'var(--accent-primary-gradient)',
-              color: '#fff',
-              border: 'none',
-              padding: '14px',
-              borderRadius: 'var(--radius-md)',
-              fontWeight: 700,
-              fontSize: '15px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-            }}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Input
+              label="Previous Institute (F.Sc / College)"
+              placeholder="e.g. Govt Girls College"
+              value={form.previousInstitute}
+              onChange={(e) => setForm({ ...form, previousInstitute: e.target.value })}
+            />
+            <Input
+              label="Marks Obtained"
+              type="number"
+              value={form.marksObtained}
+              onChange={(e) => setForm({ ...form, marksObtained: Number(e.target.value) })}
+            />
+            <Input
+              label="Total Marks"
+              type="number"
+              value={form.totalMarks}
+              onChange={(e) => setForm({ ...form, totalMarks: Number(e.target.value) })}
+            />
+          </div>
+
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full"
+            isLoading={isLoading}
+            leftIcon={<Send className="w-4 h-4" />}
           >
-            <Sparkles size={18} /> Submit Official Admission Application
-          </button>
-        </form>
-      )}
+            Submit Official Admission Application
+          </Button>
+        </Card>
+      </form>
     </div>
   );
 }

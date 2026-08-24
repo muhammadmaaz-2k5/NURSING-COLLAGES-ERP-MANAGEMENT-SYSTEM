@@ -2,28 +2,27 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Newspaper, Plus, Eye, Calendar, User } from 'lucide-react';
+import { ArrowLeft, Calendar, Plus, MapPin, Clock } from 'lucide-react';
 import { DataTable, Column } from '../../../components/tables/DataTable';
 import { Button } from '../../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
-import { PublishStatusBadge } from '../../../features/portal/components/PublishStatusBadge';
-import { ArticleModal } from '../../../features/portal/components/ArticleModal';
-import { fetchNews } from '../../../features/portal/services/portal.api';
-import { NewsArticle } from '../../../features/portal/types/portal.types';
+import { EventModal } from '../../../features/portal/components/EventModal';
+import { fetchEvents } from '../../../features/portal/services/portal.api';
+import { PortalEvent } from '../../../features/portal/types/portal.types';
 import { formatDate } from '../../../lib/utils';
 
-export default function NewsPage() {
+export default function EventsPage() {
   const router = useRouter();
-  const [articles, setArticles] = useState<NewsArticle[]>([]);
+  const [events, setEvents] = useState<PortalEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await fetchNews();
-      setArticles(data);
+      const data = await fetchEvents();
+      setEvents(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -35,44 +34,44 @@ export default function NewsPage() {
     loadData();
   }, []);
 
-  const columns: Column<NewsArticle>[] = [
+  const columns: Column<PortalEvent>[] = [
     {
-      header: 'Article Title & Slug',
+      header: 'Event Title & Venue',
       accessorKey: 'title',
       sortable: true,
-      cell: (art) => (
-        <div className="flex items-center gap-3">
-          <img
-            src={art.imageUrl || 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=150'}
-            alt={art.title}
-            className="w-12 h-12 rounded-xl object-cover border border-slate-700 shrink-0"
-          />
-          <div>
-            <p className="font-bold text-slate-100 line-clamp-1">{art.title}</p>
-            <span className="font-mono text-blue-400 text-xs">/{art.slug}</span>
+      cell: (evt) => (
+        <div>
+          <p className="font-bold text-slate-100">{evt.title}</p>
+          <div className="flex items-center gap-1 text-slate-400 text-xs mt-0.5">
+            <MapPin className="w-3 h-3 text-rose-400" />
+            <span>{evt.location || 'College Campus'}</span>
           </div>
         </div>
       ),
     },
     {
-      header: 'Excerpt Summary',
-      accessorKey: 'excerpt',
-      cell: (art) => <span className="text-xs text-slate-400 line-clamp-2">{art.excerpt || '—'}</span>,
-    },
-    {
-      header: 'Publish Date',
-      accessorKey: 'publishedAt',
+      header: 'Start Date & Time',
+      accessorKey: 'startDate',
       sortable: true,
-      cell: (art) => (
-        <span className="font-mono text-xs text-slate-300">
-          {art.publishedAt ? formatDate(art.publishedAt) : 'Draft'}
+      cell: (evt) => (
+        <span className="font-mono text-xs text-blue-400 font-semibold">
+          {formatDate(evt.startDate)}
         </span>
       ),
     },
     {
+      header: 'Description & Summary',
+      accessorKey: 'description',
+      cell: (evt) => <span className="text-xs text-slate-400 line-clamp-2">{evt.description || '—'}</span>,
+    },
+    {
       header: 'Status',
-      accessorKey: 'status',
-      cell: (art) => <PublishStatusBadge status={art.status} />,
+      accessorKey: 'isPublished',
+      cell: (evt) => (
+        <Badge variant={evt.isPublished ? 'success' : 'neutral'} size="sm" dot>
+          {evt.isPublished ? 'UPCOMING' : 'DRAFT'}
+        </Badge>
+      ),
     },
   ];
 
@@ -94,30 +93,30 @@ export default function NewsPage() {
           onClick={() => setIsModalOpen(true)}
           leftIcon={<Plus className="w-4 h-4" />}
         >
-          Publish Article
+          Schedule Event
         </Button>
       </div>
 
       <Card className="p-6 space-y-4">
         <CardHeader className="pb-2">
           <div>
-            <CardTitle className="text-lg">News Articles & Press Releases</CardTitle>
+            <CardTitle className="text-lg">Campus Events & Clinical Workshops</CardTitle>
             <CardDescription>
-              Manage public news stories, convocation announcements, and media releases
+              Manage public seminar schedules, ICU simulation training, and academic conferences
             </CardDescription>
           </div>
         </CardHeader>
 
         <DataTable
           columns={columns}
-          data={articles}
+          data={events}
           isLoading={isLoading}
-          searchPlaceholder="Search news by title..."
+          searchPlaceholder="Search events..."
           pageSize={10}
         />
       </Card>
 
-      <ArticleModal
+      <EventModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={loadData}
