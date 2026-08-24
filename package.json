@@ -1,0 +1,37 @@
+{
+  "name": "pern-monolith",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-College ERP & SaaS Monolith with NestJS, Next.js, and Prisma ORM",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run --workspace=apps/api start:dev",
+    "dev:web": "npm run --workspace=apps/web dev",
+    "build": "npm run build:api && npm run build:web",
+    "build:api": "npm run --workspace=apps/api build",
+    "build:web": "npm run --workspace=apps/web build",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:push": "prisma db push",
+    "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
+    "backup": "ts-node scripts/backup.ts",
+    "restore": "ts-node scripts/restore.ts",
+    "prisma:studio": "prisma studio",
+    "lint": "npm run --workspace=apps/api lint && npm run --workspace=apps/web lint"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "concurrently": "^9.1.2",
+    "prisma": "^6.4.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.4.1",
+    "dotenv": "^16.4.7"
+  }
+}
