@@ -15,6 +15,7 @@ import { InstanceBootstrapService } from './common/bootstrap/instance-bootstrap.
 
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
 import { CollegeModule } from './modules/college/college.module';
 import { ModuleConfigModule } from './modules/module-config/module-config.module';
 import { AcademicModule } from './modules/academic/academic.module';
@@ -53,6 +54,7 @@ import { PortalModule } from './modules/portal/portal.module';
     PrismaModule,
     HealthModule,
     AuthModule,
+    UsersModule,
     CollegeModule,
     ModuleConfigModule,
     AcademicModule,

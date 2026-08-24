@@ -1,15 +1,39 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateCollegeDto } from './dto/create-college.dto';
-import { ModuleType } from '@prisma/client';
 import { Cacheable, CacheEvict, TTL_PRESETS } from '../../common/cache';
+
+export interface UpdateCollegeDto {
+  name?: string;
+  code?: string;
+  slug?: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+  description?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  country?: string;
+}
+
+export interface UpdateCollegeSettingsDto {
+  timezone?: string;
+  currency?: string;
+  gradingSystem?: Record<string, any>;
+  attendanceSettings?: Record<string, any>;
+  admissionSettings?: Record<string, any>;
+  feeSettings?: Record<string, any>;
+  websiteSettings?: Record<string, any>;
+}
 
 @Injectable()
 export class CollegeService {
   constructor(private readonly prisma: PrismaService) {}
 
   @Cacheable({
-    key: 'college:profile',
+    key: 'college:profile:full',
     ttl: TTL_PRESETS.LONG,
     tags: ['college'],
   })
@@ -17,7 +41,9 @@ export class CollegeService {
     const college = await this.prisma.college.findFirst({
       include: {
         settings: true,
-        modules: true,
+        modules: {
+          orderBy: { module: 'asc' },
+        },
       },
     });
 
@@ -28,73 +54,46 @@ export class CollegeService {
     return college;
   }
 
-  async findAll() {
-    return this.prisma.college.findMany({
-      include: {
-        settings: true,
-        modules: {
-          where: { enabled: true },
-        },
-      },
-    });
-  }
-
-  async findOne(id: string) {
-    const college = await this.prisma.college.findFirst({
-      where: {
-        OR: [{ id }, { code: id }, { slug: id }],
-      },
-      include: {
-        settings: true,
-        modules: true,
-      },
-    });
-
+  @CacheEvict({
+    tags: ['college'],
+    keys: ['college:profile:full', 'college:profile'],
+  })
+  async updateProfile(data: UpdateCollegeDto) {
+    const college = await this.prisma.college.findFirst();
     if (!college) {
-      throw new NotFoundException(`College with identifier "${id}" not found`);
+      throw new NotFoundException('College profile not initialized.');
     }
 
-    return college;
+    return this.prisma.college.update({
+      where: { id: college.id },
+      data,
+      include: { settings: true },
+    });
   }
 
   @CacheEvict({
     tags: ['college'],
-    keys: ['college:profile'],
+    keys: ['college:profile:full', 'college:profile'],
   })
-  async create(dto: CreateCollegeDto) {
-    const college = await this.prisma.college.create({
-      data: {
-        ...dto,
-        settings: {
-          create: {
-            timezone: 'Asia/Karachi',
-            currency: 'PKR',
-          },
-        },
+  async updateSettings(data: UpdateCollegeSettingsDto) {
+    const college = await this.prisma.college.findFirst();
+    if (!college) {
+      throw new NotFoundException('College profile not initialized.');
+    }
+
+    return this.prisma.collegeSettings.upsert({
+      where: { collegeId: college.id },
+      update: data,
+      create: {
+        collegeId: college.id,
+        timezone: data.timezone || 'Asia/Karachi',
+        currency: data.currency || 'PKR',
+        gradingSystem: data.gradingSystem,
+        attendanceSettings: data.attendanceSettings,
+        admissionSettings: data.admissionSettings,
+        feeSettings: data.feeSettings,
+        websiteSettings: data.websiteSettings,
       },
     });
-
-    // Initialize standard modules
-    const defaultModules: ModuleType[] = [
-      ModuleType.ACADEMIC,
-      ModuleType.STUDENTS,
-      ModuleType.ADMISSIONS,
-      ModuleType.FACULTY,
-      ModuleType.ATTENDANCE,
-      ModuleType.EXAMINATIONS,
-      ModuleType.RESULTS,
-      ModuleType.FEES,
-    ];
-
-    await this.prisma.collegeModule.createMany({
-      data: defaultModules.map((m) => ({
-        collegeId: college.id,
-        module: m,
-        enabled: true,
-      })),
-      skipDuplicates: true,
-    });
-
-    return this.findOne(college.id);
   }
 }
