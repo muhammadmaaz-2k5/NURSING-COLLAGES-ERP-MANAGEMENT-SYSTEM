@@ -1,222 +1,395 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   BookOpen,
-  Bookmark,
-  Users,
-  AlertCircle,
-  Search,
+  Layers,
+  Clock,
   Plus,
   ArrowRight,
-  CheckCircle2,
-  Barcode,
-  Calendar,
+  ShieldCheck,
+  RotateCcw,
+  Library,
+  BookCopy,
 } from 'lucide-react';
-import { StatsCard } from '../../components/StatsCard';
+import { DataTable, Column } from '../../components/tables/DataTable';
+import { Button } from '../../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { OverdueFineBadge } from '../../features/library/components/OverdueFineBadge';
+import { BookTitleModal } from '../../features/library/components/BookTitleModal';
+import { IssueBookModal } from '../../features/library/components/IssueBookModal';
+import { ReturnBookModal } from '../../features/library/components/ReturnBookModal';
+import {
+  fetchLibraryDashboard,
+  fetchBooks,
+  fetchCirculationIssues,
+} from '../../features/library/services/library.api';
+import {
+  BookTitle,
+  CirculationIssue,
+  LibraryDashboardData,
+} from '../../features/library/types/library.types';
+import { formatDate } from '../../lib/utils';
+
+type LibraryTab = 'catalog' | 'circulation';
 
 export default function LibraryPage() {
-  const [activeTab, setActiveTab] = useState<'catalog' | 'circulation' | 'overdue'>('catalog');
-  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<LibraryTab>('catalog');
+  const [dashboard, setDashboard] = useState<LibraryDashboardData | null>(null);
+  const [books, setBooks] = useState<BookTitle[]>([]);
+  const [issues, setIssues] = useState<CirculationIssue[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const stats = {
-    totalTitles: 1420,
-    physicalCopies: 4850,
-    activeLoans: 312,
-    overdueLoans: 14,
+  // Modals
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState<CirculationIssue | null>(null);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [dashRes, bksRes, issRes] = await Promise.all([
+        fetchLibraryDashboard(),
+        fetchBooks(),
+        fetchCirculationIssues(),
+      ]);
+      setDashboard(dashRes);
+      setBooks(bksRes.data);
+      setIssues(issRes);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const books = [
-    { id: '1', title: 'Fundamentals of Nursing', author: 'Patricia A. Potter', isbn: '978-0323677721', category: 'Nursing Care', totalCopies: 25, available: 18, edition: '10th Ed' },
-    { id: '2', title: 'Brunner & Suddarth\'s Medical-Surgical Nursing', author: 'Janice L. Hinkle', isbn: '978-1975124465', category: 'Medical Surgical', totalCopies: 30, available: 8, edition: '15th Ed' },
-    { id: '3', title: 'Pharmacology and the Nursing Process', author: 'Linda Lane Lilley', isbn: '978-0323827973', category: 'Pharmacology', totalCopies: 20, available: 15, edition: '10th Ed' },
-    { id: '4', title: 'Anatomy & Physiology for Nursing', author: 'Ian Peate', isbn: '978-1119770169', category: 'Anatomy', totalCopies: 15, available: 0, edition: '3rd Ed' },
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const bookColumns: Column<BookTitle>[] = [
+    {
+      header: 'Book Title & Author',
+      accessorKey: 'title',
+      sortable: true,
+      cell: (bk) => (
+        <div>
+          <p className="font-bold text-slate-100">{bk.title}</p>
+          <span className="text-xs text-blue-400 font-semibold">{bk.author || '—'}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Category & Edition',
+      accessorKey: 'category',
+      sortable: true,
+      cell: (bk) => (
+        <div className="text-xs">
+          <Badge variant="purple" size="sm">
+            {bk.category || 'General'}
+          </Badge>
+          <span className="text-slate-400 block mt-1">{bk.edition}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Physical Stacks Location',
+      accessorKey: 'shelfLocation',
+      cell: (bk) => <span className="font-mono text-slate-300 text-xs">{bk.shelfLocation || '—'}</span>,
+    },
+    {
+      header: 'Available / Total Copies',
+      sortable: true,
+      cell: (bk) => (
+        <div className="font-mono text-xs">
+          <span className="font-bold text-emerald-400 text-sm">{bk.availableCopies}</span>
+          <span className="text-slate-500"> / {bk.totalCopies} Copies</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Action',
+      cell: (bk) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push(`/library/books/${bk.id}`)}
+          rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+        >
+          Accession Copies
+        </Button>
+      ),
+    },
   ];
 
-  const issues = [
-    { id: 'ISS-101', book: 'Fundamentals of Nursing', copyNo: 'FON-004', student: 'Amina Bibi (NUR-2024-001)', issueDate: '2026-08-15', dueDate: '2026-08-29', status: 'ISSUED', daysLeft: 5 },
-    { id: 'ISS-102', book: 'Brunner & Suddarth\'s Med-Surg', copyNo: 'BSN-012', student: 'Zubair Khan (BSN-2024-045)', issueDate: '2026-08-01', dueDate: '2026-08-15', status: 'OVERDUE', daysLeft: -9, fine: 'PKR 450' },
-    { id: 'ISS-103', book: 'Pharmacology & Nursing Process', copyNo: 'PHR-008', student: 'Hamza Ali (NUR-2025-012)', issueDate: '2026-08-20', dueDate: '2026-09-03', status: 'ISSUED', daysLeft: 10 },
+  const circulationColumns: Column<CirculationIssue>[] = [
+    {
+      header: 'Book Title & Accession Copy',
+      accessorKey: 'bookTitle',
+      sortable: true,
+      cell: (iss) => (
+        <div>
+          <p className="font-bold text-slate-100">{iss.bookTitle}</p>
+          <span className="font-mono text-xs text-blue-400">Copy: {iss.accessionNo}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Borrower Student',
+      accessorKey: 'studentName',
+      sortable: true,
+      cell: (iss) => (
+        <div className="flex items-center gap-2">
+          <img
+            src={iss.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150'}
+            alt={iss.studentName}
+            className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0"
+          />
+          <div>
+            <p className="font-semibold text-white text-xs">{iss.studentName}</p>
+            <span className="font-mono text-slate-400 text-[10px]">{iss.studentRegId}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Loan Issue Date',
+      accessorKey: 'issuedAt',
+      sortable: true,
+      cell: (iss) => <span className="font-mono text-slate-400 text-xs">{formatDate(iss.issuedAt)}</span>,
+    },
+    {
+      header: 'Due Date',
+      accessorKey: 'dueDate',
+      sortable: true,
+      cell: (iss) => (
+        <span
+          className={`font-mono text-xs font-bold ${
+            iss.isOverdue ? 'text-rose-400' : 'text-slate-200'
+          }`}
+        >
+          {formatDate(iss.dueDate)}
+        </span>
+      ),
+    },
+    {
+      header: 'Loan Status',
+      cell: (iss) => (
+        <OverdueFineBadge
+          isOverdue={iss.isOverdue}
+          daysOverdue={iss.daysOverdue}
+          fineAmount={iss.fineAmount}
+        />
+      ),
+    },
+    {
+      header: 'Action',
+      cell: (iss) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSelectedIssue(iss);
+            setIsReturnModalOpen(true);
+          }}
+          leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
+        >
+          Return Book
+        </Button>
+      ),
+    },
   ];
 
   return (
-    <div>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2>Central Library & Circulation Desk</h2>
-          <p>Book title catalog, physical copy tracking with barcodes/accession numbers, loans circulation, and fine calculation.</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              Library & Circulation Management
+            </h1>
+            <Badge variant="success" size="sm">
+              <ShieldCheck className="w-3.5 h-3.5 mr-1" />
+              Accession Barcode Tracking
+            </Badge>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Manage academic book titles, physical copy accession records, student loan circulation, and automated overdue fines.
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <span className="code-pill" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '6px 14px', borderRadius: '20px', fontWeight: 600, fontSize: '13px' }}>
-            ● Library Module Active
-          </span>
-        </div>
-      </div>
 
-      <div className="stats-grid">
-        <StatsCard label="Book Catalog Titles" value={`${stats.totalTitles} Titles`} icon={BookOpen} iconBg="rgba(59, 130, 246, 0.15)" iconColor="#60a5fa" />
-        <StatsCard label="Physical Volume Copies" value={`${stats.physicalCopies} Copies`} icon={Bookmark} iconBg="rgba(16, 185, 129, 0.15)" iconColor="#34d399" />
-        <StatsCard label="Active Issued Loans" value={`${stats.activeLoans} Books`} icon={Users} iconBg="rgba(245, 158, 11, 0.15)" iconColor="#fbbf24" />
-        <StatsCard label="Overdue Returns" value={`${stats.overdueLoans} Overdue`} icon={AlertCircle} iconBg="rgba(244, 63, 94, 0.15)" iconColor="#f43f5e" />
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', overflowX: 'auto' }}>
-        {[
-          { id: 'catalog', label: 'Book Collection Catalog' },
-          { id: 'circulation', label: 'Active Loans Circulation' },
-          { id: 'overdue', label: 'Overdue & Fine Recovery' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            style={{
-              background: activeTab === tab.id ? 'var(--accent-primary-gradient)' : 'rgba(255, 255, 255, 0.03)',
-              border: activeTab === tab.id ? 'none' : '1px solid var(--border-color)',
-              color: activeTab === tab.id ? '#fff' : 'var(--text-secondary)',
-              fontWeight: 600,
-              fontSize: '13px',
-              cursor: 'pointer',
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-md)',
-              transition: 'all 0.2s',
-            }}
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsBookModalOpen(true)}
+            leftIcon={<Plus className="w-4 h-4" />}
           >
-            {tab.label}
-          </button>
-        ))}
+            Catalog Book
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setIsIssueModalOpen(true)}
+            leftIcon={<BookOpen className="w-4 h-4" />}
+          >
+            Issue Book Loan
+          </Button>
+        </div>
       </div>
 
-      {/* 1. Catalog */}
-      {activeTab === 'catalog' && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-          <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Library Books & Physical Volumes</h3>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ position: 'relative', width: '260px' }}>
-                <Search size={16} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
-                <input
-                  type="text"
-                  placeholder="Search title, author, ISBN..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid var(--border-color)',
-                    color: '#fff',
-                    padding: '8px 12px 8px 36px',
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: '13px',
-                  }}
-                />
-              </div>
-              <button style={{ background: 'var(--accent-primary-gradient)', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
-                + Add Book Title
-              </button>
-            </div>
-          </div>
+      {/* KPI Stats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Catalog Titles
+          </span>
+          <h3 className="text-2xl font-black text-white mt-1">
+            {dashboard?.totalTitles.toLocaleString() || '1,240'}
+          </h3>
+          <p className="text-xs text-blue-400 mt-2 font-medium">Distinct Book Works</p>
+        </Card>
 
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Book Title</th>
-                <th>Author & Edition</th>
-                <th>Category</th>
-                <th>ISBN Code</th>
-                <th>Total Copies</th>
-                <th>Available</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {books.map((b) => (
-                <tr key={b.id}>
-                  <td><strong style={{ color: '#fff' }}>{b.title}</strong></td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{b.author} ({b.edition})</td>
-                  <td><span className="code-pill">{b.category}</span></td>
-                  <td><div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Barcode size={14} color="var(--text-muted)" /> {b.isbn}</div></td>
-                  <td>{b.totalCopies} Copies</td>
-                  <td><strong style={{ color: b.available === 0 ? '#f43f5e' : '#34d399' }}>{b.available} Copies</strong></td>
-                  <td>
-                    <span
-                      style={{
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        background: b.available === 0 ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                        color: b.available === 0 ? '#f43f5e' : '#34d399',
-                      }}
-                    >
-                      {b.available === 0 ? 'ALL ISSUED' : 'AVAILABLE'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Total Physical Volumes
+          </span>
+          <h3 className="text-2xl font-black text-purple-400 mt-1">
+            {dashboard?.totalVolumes.toLocaleString() || '4,850'}
+          </h3>
+          <p className="text-xs text-purple-300 mt-2 font-medium">
+            {dashboard?.availableCopies.toLocaleString() || '4,120'} Available on Stacks
+          </p>
+        </Card>
 
-      {/* 2. Circulation */}
-      {activeTab === 'circulation' && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Circulation Issue & Return Desk</h3>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Track individual physical copy barcodes and student loan tenures.</p>
-            </div>
-            <button style={{ background: 'var(--accent-primary-gradient)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
-              + Issue Book Copy
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Active Circulation Loans
+          </span>
+          <h3 className="text-2xl font-black text-emerald-400 mt-1">
+            {dashboard?.activeIssuesCount || 730}
+          </h3>
+          <p className="text-xs text-emerald-300 mt-2 font-medium">Currently Loaned Out</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Overdue Loans (&gt;14d)
+          </span>
+          <h3 className="text-2xl font-black text-rose-400 mt-1">
+            {dashboard?.overdueIssuesCount || 18}
+          </h3>
+          <p className="text-xs text-rose-300 mt-2 font-medium">Fines Accruing</p>
+        </Card>
+      </div>
+
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
+        {[
+          { id: 'catalog' as const, label: 'Book Titles Catalog', icon: Library, count: books.length },
+          { id: 'circulation' as const, label: 'Circulation & Active Loans', icon: BookCopy, count: issues.length },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span
+                  className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
             </button>
-          </div>
+          );
+        })}
+      </div>
 
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Issue ID</th>
-                <th>Accession #</th>
-                <th>Book Title</th>
-                <th>Borrower Student</th>
-                <th>Issue Date</th>
-                <th>Due Date</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {issues.map((iss) => (
-                <tr key={iss.id}>
-                  <td><span className="code-pill">{iss.id}</span></td>
-                  <td><span className="code-pill" style={{ color: '#38bdf8' }}>{iss.copyNo}</span></td>
-                  <td><strong style={{ color: '#fff' }}>{iss.book}</strong></td>
-                  <td>{iss.student}</td>
-                  <td style={{ color: 'var(--text-muted)' }}>{iss.issueDate}</td>
-                  <td style={{ color: iss.status === 'OVERDUE' ? '#f43f5e' : '#60a5fa', fontWeight: 600 }}>{iss.dueDate}</td>
-                  <td>
-                    <span
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        background: iss.status === 'OVERDUE' ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                        color: iss.status === 'OVERDUE' ? '#f43f5e' : '#34d399',
-                      }}
-                    >
-                      {iss.status}
-                    </span>
-                  </td>
-                  <td>
-                    <button style={{ padding: '4px 10px', fontSize: '12px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Return Book</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* Tab Panels */}
+
+      {/* 1. CATALOG */}
+      {activeTab === 'catalog' && (
+        <Card className="p-6 space-y-4">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-lg">Library Book Catalog & Accession Inventory</CardTitle>
+              <CardDescription>
+                Search catalog by title, author, subject category, or ISBN
+              </CardDescription>
+            </div>
+          </CardHeader>
+
+          <DataTable
+            columns={bookColumns}
+            data={books}
+            isLoading={isLoading}
+            searchPlaceholder="Search by title, author, or category..."
+            pageSize={10}
+            onRowClick={(bk) => router.push(`/library/books/${bk.id}`)}
+          />
+        </Card>
       )}
+
+      {/* 2. CIRCULATION */}
+      {activeTab === 'circulation' && (
+        <Card className="p-6 space-y-4">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-lg">Circulation Desk & Active Student Loans</CardTitle>
+              <CardDescription>
+                Active book loans, due date tracking, and overdue fine status
+              </CardDescription>
+            </div>
+          </CardHeader>
+
+          <DataTable
+            columns={circulationColumns}
+            data={issues}
+            isLoading={isLoading}
+            searchPlaceholder="Search by book title, accession number, or student..."
+            pageSize={10}
+          />
+        </Card>
+      )}
+
+      {/* Modals */}
+      <BookTitleModal
+        isOpen={isBookModalOpen}
+        onClose={() => setIsBookModalOpen(false)}
+        onSuccess={loadData}
+      />
+
+      <IssueBookModal
+        isOpen={isIssueModalOpen}
+        onClose={() => setIsIssueModalOpen(false)}
+        onSuccess={loadData}
+      />
+
+      <ReturnBookModal
+        isOpen={isReturnModalOpen}
+        onClose={() => setIsReturnModalOpen(false)}
+        issue={selectedIssue}
+        onSuccess={loadData}
+      />
     </div>
   );
 }
