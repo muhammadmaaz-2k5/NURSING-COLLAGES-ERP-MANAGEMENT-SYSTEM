@@ -1,188 +1,447 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Bus,
   MapPin,
   Users,
-  Navigation,
-  Clock,
   Plus,
+  ArrowRight,
+  ShieldCheck,
+  Fuel,
+  Route as RouteIcon,
   Phone,
-  CheckCircle2,
-  Percent,
 } from 'lucide-react';
-import { StatsCard } from '../../components/StatsCard';
+import { DataTable, Column } from '../../components/tables/DataTable';
+import { Button } from '../../components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { VehicleCapacityIndicator } from '../../features/transport/components/VehicleCapacityIndicator';
+import { VehicleModal } from '../../features/transport/components/VehicleModal';
+import { RouteModal } from '../../features/transport/components/RouteModal';
+import { StudentBusPassModal } from '../../features/transport/components/StudentBusPassModal';
+import {
+  fetchTransportDashboard,
+  fetchVehicles,
+  fetchRoutes,
+  fetchAssignments,
+} from '../../features/transport/services/transport.api';
+import {
+  TransportVehicle,
+  TransportRoute,
+  TransportAssignment,
+  TransportDashboardData,
+} from '../../features/transport/types/transport.types';
+import { formatDate } from '../../lib/utils';
+
+type TransportTab = 'fleet' | 'routes' | 'passes';
 
 export default function TransportPage() {
-  const [activeTab, setActiveTab] = useState<'fleet' | 'routes' | 'passes'>('fleet');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TransportTab>('fleet');
+  const [dashboard, setDashboard] = useState<TransportDashboardData | null>(null);
+  const [vehicles, setVehicles] = useState<TransportVehicle[]>([]);
+  const [routes, setRoutes] = useState<TransportRoute[]>([]);
+  const [assignments, setAssignments] = useState<TransportAssignment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const stats = {
-    totalFleet: 6,
-    totalRoutes: 4,
-    totalCapacity: 192,
-    activePasses: 168,
-    fleetUtilization: '87.5%',
+  // Modals
+  const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
+  const [isRouteModalOpen, setIsRouteModalOpen] = useState(false);
+  const [isPassModalOpen, setIsPassModalOpen] = useState(false);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [dashRes, vehRes, rtsRes, asgRes] = await Promise.all([
+        fetchTransportDashboard(),
+        fetchVehicles(),
+        fetchRoutes(),
+        fetchAssignments(),
+      ]);
+      setDashboard(dashRes);
+      setVehicles(vehRes);
+      setRoutes(rtsRes);
+      setAssignments(asgRes);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const vehicles = [
-    { id: '1', regNo: 'ICT-BUS-901', name: 'Campus Coaster 01', type: 'Toyota Coaster (32 Seats)', capacity: 32, occupied: 30, driver: 'Muhammad Rafiq', phone: '+92-300-9988771', route: 'Route 1: Rawalpindi Saddar' },
-    { id: '2', regNo: 'ICT-BUS-902', name: 'Campus Coaster 02', type: 'Toyota Coaster (32 Seats)', capacity: 32, occupied: 32, driver: 'Ghulam Rasool', phone: '+92-300-9988772', route: 'Route 2: Islamabad Expressway' },
-    { id: '3', regNo: 'ICT-BUS-903', name: 'Campus Coaster 03', type: 'Toyota Coaster (32 Seats)', capacity: 32, occupied: 28, driver: 'Tariq Mehmood', phone: '+92-300-9988773', route: 'Route 3: Kashmir Highway & G-Sectors' },
-    { id: '4', regNo: 'ICT-BUS-904', name: 'Campus Bus 04', type: 'Hino Large Bus (50 Seats)', capacity: 50, occupied: 45, driver: 'Altaf Hussain', phone: '+92-300-9988774', route: 'Route 4: I-9 & Satellite Town' },
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const vehicleColumns: Column<TransportVehicle>[] = [
+    {
+      header: 'Vehicle & Model',
+      accessorKey: 'registrationNo',
+      sortable: true,
+      cell: (v) => (
+        <div>
+          <p className="font-mono font-bold text-slate-100">{v.registrationNo}</p>
+          <span className="text-xs text-blue-400 font-medium">{v.type || v.name}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Assigned Driver',
+      accessorKey: 'driverName',
+      sortable: true,
+      cell: (v) => (
+        <div className="text-xs">
+          <p className="font-bold text-slate-200">{v.driverName || '—'}</p>
+          <span className="text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+            <Phone className="w-3 h-3" /> {v.driverPhone || '—'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: 'Assigned Route',
+      cell: (v) => (
+        <span className="text-xs font-semibold text-purple-300">
+          {v.currentRoute?.name || 'General Transit'}
+        </span>
+      ),
+    },
+    {
+      header: 'Seating Capacity & Meter',
+      cell: (v) => (
+        <div className="w-48">
+          <VehicleCapacityIndicator
+            capacity={v.capacity}
+            allocated={v.allocatedSeatsCount}
+          />
+        </div>
+      ),
+    },
+    {
+      header: 'Fleet Status',
+      accessorKey: 'status',
+      cell: (v) => (
+        <Badge variant={v.status === 'ACTIVE' ? 'success' : 'warning'} size="sm" dot>
+          {v.status}
+        </Badge>
+      ),
+    },
+    {
+      header: 'Action',
+      cell: (v) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push(`/transport/vehicles/${v.id}`)}
+          rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+        >
+          Vehicle Log
+        </Button>
+      ),
+    },
   ];
 
-  const passes = [
-    { id: 'PAS-001', student: 'Amina Bibi', rollNo: 'NUR-2024-001', vehicle: 'ICT-BUS-901', stop: 'Saddar Metro Station', pickup: '07:15 AM', status: 'ACTIVE' },
-    { id: 'PAS-002', student: 'Zubair Khan', rollNo: 'BSN-2024-045', vehicle: 'ICT-BUS-902', stop: 'Faizabad Interchange', pickup: '07:25 AM', status: 'ACTIVE' },
-    { id: 'PAS-003', student: 'Hamza Ali', rollNo: 'NUR-2025-012', vehicle: 'ICT-BUS-903', stop: 'G-9 Markaz Karachi Company', pickup: '07:35 AM', status: 'ACTIVE' },
+  const assignmentColumns: Column<TransportAssignment>[] = [
+    {
+      header: 'Student Resident',
+      accessorKey: 'studentName',
+      sortable: true,
+      cell: (asg) => (
+        <div className="flex items-center gap-3">
+          <img
+            src={asg.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150'}
+            alt={asg.studentName}
+            className="w-8 h-8 rounded-lg object-cover border border-slate-700 shrink-0"
+          />
+          <div>
+            <p className="font-bold text-slate-100">{asg.studentName}</p>
+            <span className="font-mono text-blue-400 text-xs">{asg.studentRegId}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Vehicle & Route',
+      sortable: true,
+      cell: (asg) => (
+        <div>
+          <p className="font-mono font-bold text-slate-200 text-xs">{asg.vehicleRegNo}</p>
+          <span className="text-xs text-purple-400">{asg.routeName}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Assigned Pickup Stop',
+      accessorKey: 'stopName',
+      cell: (asg) => (
+        <div className="text-xs">
+          <p className="font-semibold text-white">{asg.stopName || 'Terminal Stop'}</p>
+          <span className="font-mono text-amber-400">{asg.pickupTime || '07:30 AM'}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Pass Valid Since',
+      accessorKey: 'startDate',
+      sortable: true,
+      cell: (asg) => <span className="font-mono text-slate-400 text-xs">{formatDate(asg.startDate)}</span>,
+    },
+    {
+      header: 'Pass Status',
+      accessorKey: 'status',
+      cell: (asg) => (
+        <Badge variant="success" size="sm" dot>
+          ACTIVE PASS
+        </Badge>
+      ),
+    },
   ];
 
   return (
-    <div>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2>Transport & Student Shuttle Fleet</h2>
-          <p>Fleet vehicle capacity management, route schedules, pickup stops, and passenger bus pass allocations.</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              Transport & Fleet Management
+            </h1>
+            <Badge variant="success" size="sm">
+              <ShieldCheck className="w-3.5 h-3.5 mr-1" />
+              Seating Capacity Protection
+            </Badge>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Manage college fleet vehicles, commuter routes, scheduled pickup stops, and student transit bus passes.
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <span className="code-pill" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '6px 14px', borderRadius: '20px', fontWeight: 600, fontSize: '13px' }}>
-            ● Transport Module Active
-          </span>
-        </div>
-      </div>
 
-      <div className="stats-grid">
-        <StatsCard label="Fleet Vehicles" value={`${stats.totalFleet} Buses`} icon={Bus} iconBg="rgba(59, 130, 246, 0.15)" iconColor="#60a5fa" />
-        <StatsCard label="Operating Routes" value={`${stats.totalRoutes} Routes`} icon={Navigation} iconBg="rgba(16, 185, 129, 0.15)" iconColor="#34d399" />
-        <StatsCard label="Active Student Passes" value={`${stats.activePasses} Passes`} icon={Users} iconBg="rgba(245, 158, 11, 0.15)" iconColor="#fbbf24" />
-        <StatsCard label="Fleet Utilization" value={stats.fleetUtilization} icon={Percent} iconBg="rgba(244, 63, 94, 0.15)" iconColor="#f43f5e" />
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', overflowX: 'auto' }}>
-        {[
-          { id: 'fleet', label: 'Fleet Vehicle Inventory' },
-          { id: 'passes', label: 'Active Passenger Bus Passes' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            style={{
-              background: activeTab === tab.id ? 'var(--accent-primary-gradient)' : 'rgba(255, 255, 255, 0.03)',
-              border: activeTab === tab.id ? 'none' : '1px solid var(--border-color)',
-              color: activeTab === tab.id ? '#fff' : 'var(--text-secondary)',
-              fontWeight: 600,
-              fontSize: '13px',
-              cursor: 'pointer',
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-md)',
-              transition: 'all 0.2s',
-            }}
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsVehicleModalOpen(true)}
+            leftIcon={<Bus className="w-4 h-4" />}
           >
-            {tab.label}
-          </button>
-        ))}
+            Register Vehicle
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsRouteModalOpen(true)}
+            leftIcon={<RouteIcon className="w-4 h-4" />}
+          >
+            Define Route
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setIsPassModalOpen(true)}
+            leftIcon={<Plus className="w-4 h-4" />}
+          >
+            Issue Bus Pass
+          </Button>
+        </div>
       </div>
 
-      {/* 1. Fleet */}
+      {/* KPI Stats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Total Fleet Vehicles
+          </span>
+          <h3 className="text-2xl font-black text-white mt-1">
+            {dashboard?.totalVehicles || 4}
+          </h3>
+          <p className="text-xs text-blue-400 mt-2 font-medium">Buses & Clinical Shuttles</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Total Seating Capacity
+          </span>
+          <h3 className="text-2xl font-black text-purple-400 mt-1">
+            {dashboard?.totalSeatsCapacity || 148} Seats
+          </h3>
+          <p className="text-xs text-purple-300 mt-2 font-medium">Across All Active Routes</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Enrolled Student Commuters
+          </span>
+          <h3 className="text-2xl font-black text-emerald-400 mt-1">
+            {dashboard?.totalEnrolledStudents || 125}
+          </h3>
+          <p className="text-xs text-emerald-300 mt-2 font-medium">Active Transport Passes</p>
+        </Card>
+
+        <Card hoverEffect className="p-5">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Fleet Capacity Utilization
+          </span>
+          <h3 className="text-2xl font-black text-amber-400 mt-1">
+            {dashboard?.fleetUtilizationRate || 84.4}%
+          </h3>
+          <p className="text-xs text-amber-300 mt-2 font-medium">
+            {dashboard?.availableSeats || 23} Available Seats
+          </p>
+        </Card>
+      </div>
+
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
+        {[
+          { id: 'fleet' as const, label: 'Fleet Vehicles & Seating', icon: Bus, count: vehicles.length },
+          { id: 'routes' as const, label: 'Transit Routes & Stops', icon: RouteIcon, count: routes.length },
+          { id: 'passes' as const, label: 'Student Bus Pass Roster', icon: Users, count: assignments.length },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span
+                  className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Panels */}
+
+      {/* 1. FLEET VEHICLES */}
       {activeTab === 'fleet' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-          {vehicles.map((v) => (
-            <div key={v.id} className="module-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-                <div className="module-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-                  <Bus size={22} color="var(--accent-primary)" />
+        <Card className="p-6 space-y-4">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-lg">College Fleet Vehicles & Seating Meters</CardTitle>
+              <CardDescription>
+                Real-time seating occupancy and assigned driver details
+              </CardDescription>
+            </div>
+          </CardHeader>
+
+          <DataTable
+            columns={vehicleColumns}
+            data={vehicles}
+            isLoading={isLoading}
+            searchPlaceholder="Search by registration number, driver, or type..."
+            pageSize={10}
+            onRowClick={(v) => router.push(`/transport/vehicles/${v.id}`)}
+          />
+        </Card>
+      )}
+
+      {/* 2. ROUTES & STOPS */}
+      {activeTab === 'routes' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {routes.map((rt) => (
+            <Card key={rt.id} className="p-6 space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="font-bold text-white text-base">{rt.name}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {rt.startPoint} → {rt.endPoint}
+                  </p>
                 </div>
-                <span className="code-pill">{v.regNo}</span>
+                <Badge variant="purple" size="sm">
+                  {rt.stops.length} Stops
+                </Badge>
               </div>
 
-              <h4 style={{ fontSize: '16px', marginBottom: '4px' }}>{v.name}</h4>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '14px' }}>
-                {v.type} &bull; {v.route}
-              </span>
+              {rt.vehicle && (
+                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-mono text-blue-400 font-bold">
+                      {rt.vehicle.registrationNo}
+                    </span>
+                    <span className="text-slate-300">Driver: {rt.vehicle.driverName}</span>
+                  </div>
 
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px', borderRadius: 'var(--radius-md)', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Seating Occupancy</span>
-                  <span style={{ fontWeight: 700, color: v.occupied >= v.capacity ? '#f43f5e' : '#34d399' }}>
-                    {v.occupied} / {v.capacity} Seats
-                  </span>
-                </div>
-                <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${(v.occupied / v.capacity) * 100}%`,
-                      height: '100%',
-                      background: v.occupied >= v.capacity ? '#f43f5e' : 'linear-gradient(90deg, #3b82f6, #10b981)',
-                    }}
+                  <VehicleCapacityIndicator
+                    capacity={rt.vehicle.capacity}
+                    allocated={rt.vehicle.allocatedSeatsCount}
                   />
                 </div>
-              </div>
+              )}
 
-              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Driver: <strong>{v.driver}</strong></span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#60a5fa' }}><Phone size={12} /> {v.phone}</span>
-              </div>
-            </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => router.push(`/transport/routes/${rt.id}`)}
+                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+              >
+                View Stops Timeline & Enrolled Students
+              </Button>
+            </Card>
           ))}
         </div>
       )}
 
-      {/* 2. Bus Passes */}
+      {/* 3. PASSES ROSTER */}
       {activeTab === 'passes' && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <Card className="p-6 space-y-4">
+          <CardHeader className="pb-2">
             <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Active Student Bus Pass Registrations</h3>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Capacity-enforced assignment prevents vehicle overcrowding.</p>
+              <CardTitle className="text-lg">Student Transport Passes Roster</CardTitle>
+              <CardDescription>
+                Active commuter passes with assigned routes and designated pickup points
+              </CardDescription>
             </div>
-            <button style={{ background: 'var(--accent-primary-gradient)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
-              + Issue Transport Pass
-            </button>
-          </div>
+          </CardHeader>
 
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Pass ID</th>
-                <th>Student Passenger</th>
-                <th>Roll #</th>
-                <th>Assigned Vehicle</th>
-                <th>Designated Stop</th>
-                <th>Pickup Time</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {passes.map((p) => (
-                <tr key={p.id}>
-                  <td><span className="code-pill">{p.id}</span></td>
-                  <td><strong style={{ color: '#fff' }}>{p.student}</strong></td>
-                  <td><span className="code-pill">{p.rollNo}</span></td>
-                  <td><strong style={{ color: '#60a5fa' }}>{p.vehicle}</strong></td>
-                  <td><div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={14} color="var(--text-muted)" /> {p.stop}</div></td>
-                  <td><div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} color="var(--text-muted)" /> {p.pickup}</div></td>
-                  <td>
-                    <span
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        background: 'rgba(16, 185, 129, 0.15)',
-                        color: '#34d399',
-                      }}
-                    >
-                      {p.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          <DataTable
+            columns={assignmentColumns}
+            data={assignments}
+            isLoading={isLoading}
+            searchPlaceholder="Search by student, registration ID, or route..."
+            pageSize={10}
+            onRowClick={(asg) => router.push(`/transport/students/${asg.studentId}`)}
+          />
+        </Card>
       )}
+
+      {/* Modals */}
+      <VehicleModal
+        isOpen={isVehicleModalOpen}
+        onClose={() => setIsVehicleModalOpen(false)}
+        onSuccess={loadData}
+      />
+
+      <RouteModal
+        isOpen={isRouteModalOpen}
+        onClose={() => setIsRouteModalOpen(false)}
+        onSuccess={loadData}
+      />
+
+      <StudentBusPassModal
+        isOpen={isPassModalOpen}
+        onClose={() => setIsPassModalOpen(false)}
+        onSuccess={loadData}
+      />
     </div>
   );
 }
