@@ -14,6 +14,7 @@ export interface UploadedFileResult {
   publicId?: string;
   resourceType?: 'image' | 'video' | 'raw' | 'auto';
   format?: string;
+  provider?: 'cloudinary' | 'local';
 }
 
 @Injectable()
@@ -35,15 +36,15 @@ export class StorageService {
 
     if (cloudName && apiKey && apiSecret) {
       cloudinary.config({
-        cloud_name: cloudName,
-        api_key: apiKey,
-        api_secret: apiSecret,
+        cloud_name: cloudName.trim(),
+        api_key: apiKey.trim(),
+        api_secret: apiSecret.trim(),
         secure: true,
       });
       this.isCloudinaryConfigured = true;
       this.logger.log(`☁️ Cloudinary initialized successfully with cloud: ${cloudName}`);
     } else {
-      this.logger.warn('Cloudinary credentials not detected; defaulting to local filesystem storage.');
+      this.logger.warn('Cloudinary credentials not fully configured; defaulting to local storage.');
     }
   }
 
@@ -57,7 +58,7 @@ export class StorageService {
 
   /**
    * Upload file to Cloudinary with automatic resource_type (image/video/raw) detection,
-   * falling back to local storage if Cloudinary is not configured.
+   * falling back to local disk storage if Cloudinary fails or is unavailable.
    */
   async saveFile(
     buffer: Buffer,
@@ -79,7 +80,6 @@ export class StorageService {
               resource_type: resourceType,
               use_filename: true,
               unique_filename: true,
-              upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET || undefined,
             },
             (error, result) => {
               if (error) return reject(error);
@@ -90,6 +90,7 @@ export class StorageService {
           uploadStream.end(buffer);
         });
 
+        this.logger.log(`✅ Cloudinary upload success: ${uploadResult.secure_url}`);
         return {
           filename: `${uploadResult.public_id}.${uploadResult.format || 'bin'}`,
           originalName,
@@ -99,9 +100,10 @@ export class StorageService {
           publicId: uploadResult.public_id,
           resourceType: uploadResult.resource_type as any,
           format: uploadResult.format,
+          provider: 'cloudinary',
         };
       } catch (cloudErr: any) {
-        this.logger.warn(`Cloudinary upload failed (${cloudErr?.message}). Falling back to local storage...`);
+        this.logger.warn(`Cloudinary upload attempt failed (${cloudErr?.message}). Falling back to local storage...`);
       }
     }
 
@@ -115,6 +117,7 @@ export class StorageService {
     await fs.writeFile(filePath, buffer);
 
     const relativeUrl = `/uploads/${subfolder}/${filename}`;
+    this.logger.log(`📁 Local file stored: ${relativeUrl}`);
     return {
       filename,
       originalName,
@@ -122,6 +125,7 @@ export class StorageService {
       size: buffer.length,
       url: relativeUrl,
       resourceType: mimeType.startsWith('video/') ? 'video' : mimeType.startsWith('image/') ? 'image' : 'raw',
+      provider: 'local',
     };
   }
 
@@ -168,4 +172,3 @@ export class StorageService {
     };
   }
 }
-

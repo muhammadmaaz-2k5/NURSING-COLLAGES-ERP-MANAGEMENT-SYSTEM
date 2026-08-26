@@ -1,37 +1,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { Breadcrumbs } from './Breadcrumbs';
-import { Modal } from '../ui/Modal';
-import { Input } from '../ui/Input';
-import {
-  Search,
-  Users,
-  CalendarCheck,
-  Award,
-  CreditCard,
-  Stethoscope,
-  Building2,
-  Pill,
-  Home,
-  BookOpen,
-  Bus,
-  UserCheck,
-  Settings,
-  Globe,
-  PlusCircle,
-} from 'lucide-react';
-
 import { SearchOmnibox } from '../../features/search/components/SearchOmnibox';
+import { useWebSocket } from '../../common/ws/useWebSocket';
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
-  const router = useRouter();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
+
+  // Initialize real-time WebSocket connection
+  useWebSocket();
 
   // Public portal pages render their own layout without the internal ERP sidebar
   const isPortal = pathname.startsWith('/portal');
@@ -49,11 +32,11 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
   }, []);
 
   if (isPortal) {
-    return <main className="min-h-screen bg-slate-950 text-slate-100">{children}</main>;
+    return <main className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-150">{children}</main>;
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex transition-colors duration-150">
       {/* Sidebar Navigation */}
       <Sidebar
         isMobileOpen={isMobileOpen}

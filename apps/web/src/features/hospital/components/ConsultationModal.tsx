@@ -5,6 +5,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Button } from '../../../components/ui/Button';
+import { TinyEditor } from '../../../components/ui/TinyEditor';
 import { useToast } from '../../../context/ToastContext';
 import { createConsultation } from '../services/hospital.api';
 import { CreateConsultationDto } from '../types/hospital.types';
@@ -64,8 +65,8 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Record Clinical Consultation & Diagnosis"
-      description="Document bedside patient examination, vital signs, and diagnostic assessment."
-      size="lg"
+      description="Document bedside patient examination, vital signs, and diagnostic assessment with TinyMCE clinical editor."
+      size="xl"
       footer={
         <>
           <Button variant="outline" size="sm" onClick={onClose} disabled={isLoading}>
@@ -103,8 +104,8 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
         </div>
 
         {/* Vital Signs Strip */}
-        <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2">
-          <span className="text-xs font-bold text-slate-300 uppercase">
+        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2">
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">
             Clinical Vital Signs
           </span>
           <div className="grid grid-cols-4 gap-3">
@@ -171,11 +172,12 @@ export const ConsultationModal: React.FC<ConsultationModalProps> = ({
           required
         />
 
-        <Input
-          label="Clinical Notes & Management Plan"
-          placeholder="e.g. Advised steam inhalation, chest physiotherapy, oral fluids"
+        <TinyEditor
+          label="Clinical Notes, Lab Findings & Treatment Plan"
+          placeholder="Document clinical assessment, differential diagnosis, recommended medications, dosage, and review schedule..."
           value={form.clinicalNotes}
-          onChange={(e) => setForm({ ...form, clinicalNotes: e.target.value })}
+          onChange={(content) => setForm({ ...form, clinicalNotes: content })}
+          height={240}
         />
       </form>
     </Modal>

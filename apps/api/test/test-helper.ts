@@ -58,6 +58,22 @@ export const mockPrismaService = {
     count: jest.fn().mockResolvedValue(4),
   },
 
+  notification: {
+    count: jest.fn().mockResolvedValue(2),
+    findMany: jest.fn().mockResolvedValue([
+      {
+        id: 'notif-1',
+        userId: 'usr-admin-01',
+        title: 'New Admission Application',
+        message: 'Amina Bibi submitted application for Generic BSN.',
+        type: 'ADMISSION',
+        status: 'UNREAD',
+        createdAt: new Date(),
+      },
+    ]),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+  },
+
   student: {
     findMany: jest.fn().mockResolvedValue([
       { id: 'stud-01', studentId: 'NUR-2022-0041', user: { firstName: 'Amina', lastName: 'Bibi' }, program: { name: 'Generic BSN' } },

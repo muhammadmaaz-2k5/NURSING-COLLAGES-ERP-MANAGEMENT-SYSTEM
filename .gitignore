@@ -6,8 +6,16 @@ node_modules/
 apps/web/.next/
 apps/web/out/
 
-# NestJS build output
+# NestJS & TypeScript build output
 apps/api/dist/
+apps/ws/dist/
+dist/
+
+# Turborepo
+.turbo/
+apps/api/.turbo/
+apps/web/.turbo/
+apps/ws/.turbo/
 
 # Prisma
 prisma/*.db
@@ -33,4 +41,3 @@ uploads/
 # OS Files
 .DS_Store
 Thumbs.db
-

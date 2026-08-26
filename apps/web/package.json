@@ -5,11 +5,13 @@
   "description": "Next.js Frontend Portal for PERN Multi-College Monolith",
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "clean": "node -e \"const fs = require('fs'); try { fs.rmSync('.next', { recursive: true, force: true }); } catch(e){}\"",
+    "build": "npm run clean && next build",
     "start": "next start -p 3000",
     "lint": "next lint"
   },
   "dependencies": {
+    "@tinymce/tinymce-react": "^6.3.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
     "next": "15.1.7",

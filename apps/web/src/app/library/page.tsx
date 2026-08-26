@@ -12,15 +12,21 @@ import {
   RotateCcw,
   Library,
   BookCopy,
+  CheckCircle2,
+  Bookmark,
+  Search,
 } from 'lucide-react';
 import { DataTable, Column } from '../../components/tables/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { RoleGate } from '../../components/auth/RoleGate';
 import { OverdueFineBadge } from '../../features/library/components/OverdueFineBadge';
 import { BookTitleModal } from '../../features/library/components/BookTitleModal';
 import { IssueBookModal } from '../../features/library/components/IssueBookModal';
 import { ReturnBookModal } from '../../features/library/components/ReturnBookModal';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import {
   fetchLibraryDashboard,
   fetchBooks,
@@ -37,6 +43,11 @@ type LibraryTab = 'catalog' | 'circulation';
 
 export default function LibraryPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const toast = useToast();
+  const isStudent = user?.role === 'STUDENT';
+  const studentName = user?.name || 'Amina Bibi';
+
   const [activeTab, setActiveTab] = useState<LibraryTab>('catalog');
   const [dashboard, setDashboard] = useState<LibraryDashboardData | null>(null);
   const [books, setBooks] = useState<BookTitle[]>([]);
@@ -71,6 +82,169 @@ export default function LibraryPage() {
     loadData();
   }, []);
 
+  const studentBorrowed = [
+    { title: 'Brunner & Suddarth Textbook of Medical-Surgical Nursing', author: 'Janice L. Hinkle', barcode: 'LIB-ACC-1092', issueDate: '2026-08-15', dueDate: '2026-08-29', fine: 0, status: 'ACTIVE' },
+    { title: 'Pharmacology for Nurses: A Pathophysiologic Approach', author: 'Michael Adams', barcode: 'LIB-ACC-2041', issueDate: '2026-08-18', dueDate: '2026-09-01', fine: 0, status: 'ACTIVE' },
+  ];
+
+  // STUDENT VIEW
+  if (isStudent) {
+    return (
+      <div className="space-y-8 animate-fade-in max-w-7xl mx-auto">
+        {/* Header Banner */}
+        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                My Library Card & Book Stacks Circulation
+              </h1>
+              <Badge variant="success" size="sm">
+                <ShieldCheck className="w-3.5 h-3.5 mr-1 inline" />
+                Active Borrower Card
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-300">
+              Card Holder: <span className="font-bold text-white">{studentName}</span> (LIB-2022-041) • Borrowing Quota: <span className="text-blue-400 font-semibold">2 of 3 Books Active</span>
+            </p>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center gap-3">
+            <div className="text-right">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Overdue Fines</span>
+              <span className="text-xl font-black text-emerald-400">₨ 0 Due</span>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
+        {/* Borrowed Books Card */}
+        <Card className="p-6 space-y-4">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Currently Borrowed Stacks & Due Dates</CardTitle>
+                <CardDescription>Physical copies checked out on your active student library card</CardDescription>
+              </div>
+              <Badge variant="purple" size="sm">
+                2 Books Issued
+              </Badge>
+            </div>
+          </CardHeader>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold uppercase">
+                <tr>
+                  <th className="p-3.5">Book Title & Author</th>
+                  <th className="p-3.5">Accession Barcode</th>
+                  <th className="p-3.5">Issue Date</th>
+                  <th className="p-3.5">Return Due Date</th>
+                  <th className="p-3.5 text-center">Fine Status</th>
+                  <th className="p-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {studentBorrowed.map((b) => (
+                  <tr key={b.barcode} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                    <td className="p-3.5">
+                      <p className="font-bold text-slate-900 dark:text-slate-100">{b.title}</p>
+                      <span className="text-xs text-slate-500">{b.author}</span>
+                    </td>
+                    <td className="p-3.5 font-mono text-blue-600 dark:text-blue-400 font-semibold">{b.barcode}</td>
+                    <td className="p-3.5 text-slate-600 dark:text-slate-400">{b.issueDate}</td>
+                    <td className="p-3.5 font-bold text-emerald-600 dark:text-emerald-400">{b.dueDate}</td>
+                    <td className="p-3.5 text-center">
+                      <Badge variant="success" size="xs">
+                        ₨ 0 Clear
+                      </Badge>
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={() => toast.success('Book Renewed', `Extended loan period for "${b.title}" by 14 days.`)}
+                        leftIcon={<RotateCcw className="w-3 h-3" />}
+                      >
+                        Renew Loan
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {/* Book Stacks Explorer */}
+        <Card className="p-6 space-y-4">
+          <CardHeader className="pb-2">
+            <div>
+              <CardTitle className="text-base">Library Catalog & Physical Shelf Stacks</CardTitle>
+              <CardDescription>Search text resources, nursing journals, and reserve available copies</CardDescription>
+            </div>
+          </CardHeader>
+
+          <DataTable
+            columns={[
+              {
+                header: 'Title & Author',
+                accessorKey: 'title',
+                sortable: true,
+                cell: (bk) => (
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-slate-100">{bk.title}</p>
+                    <span className="text-xs text-blue-600 dark:text-blue-400">{bk.author || '—'}</span>
+                  </div>
+                ),
+              },
+              {
+                header: 'Shelf / Rack Location',
+                accessorKey: 'shelfLocation',
+                sortable: true,
+                cell: (bk) => (
+                  <span className="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {bk.shelfLocation || 'Shelf A-3, Bay 2'}
+                  </span>
+                ),
+              },
+              {
+                header: 'Availability',
+                accessorKey: 'availableCopies',
+                sortable: true,
+                cell: (bk) => (
+                  <Badge variant={bk.availableCopies > 0 ? 'success' : 'neutral'} size="xs">
+                    {bk.availableCopies} Available
+                  </Badge>
+                ),
+              },
+              {
+                header: 'Reserve',
+                accessorKey: 'id',
+                cell: (bk) => (
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => toast.success('Book Reserved', `Reserved copy of "${bk.title}" for 24 hours.`)}
+                    leftIcon={<Bookmark className="w-3 h-3" />}
+                  >
+                    Reserve
+                  </Button>
+                ),
+              },
+            ]}
+            data={books}
+            isLoading={isLoading}
+            searchPlaceholder="Search textbook titles, authors, or ISBN..."
+            pageSize={5}
+          />
+        </Card>
+      </div>
+    );
+  }
+
+  // LIBRARIAN & ADMIN VIEW
   const bookColumns: Column<BookTitle>[] = [
     {
       header: 'Book Title & Author',
@@ -78,8 +252,8 @@ export default function LibraryPage() {
       sortable: true,
       cell: (bk) => (
         <div>
-          <p className="font-bold text-slate-100">{bk.title}</p>
-          <span className="text-xs text-blue-400 font-semibold">{bk.author || '—'}</span>
+          <p className="font-bold text-slate-900 dark:text-slate-100">{bk.title}</p>
+          <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold">{bk.author || '—'}</span>
         </div>
       ),
     },
@@ -92,284 +266,87 @@ export default function LibraryPage() {
           <Badge variant="purple" size="sm">
             {bk.category || 'General'}
           </Badge>
-          <span className="text-slate-400 block mt-1">{bk.edition}</span>
+          <span className="text-slate-500 block mt-1">{bk.edition}</span>
         </div>
       ),
     },
     {
-      header: 'Physical Stacks Location',
+      header: 'Location',
       accessorKey: 'shelfLocation',
-      cell: (bk) => <span className="font-mono text-slate-300 text-xs">{bk.shelfLocation || '—'}</span>,
+      sortable: true,
+      cell: (bk) => <span className="font-mono text-xs text-slate-600 dark:text-slate-400">{bk.shelfLocation || 'Stack A'}</span>,
     },
     {
-      header: 'Available / Total Copies',
+      header: 'Copies',
+      accessorKey: 'availableCopies',
       sortable: true,
       cell: (bk) => (
-        <div className="font-mono text-xs">
-          <span className="font-bold text-emerald-400 text-sm">{bk.availableCopies}</span>
-          <span className="text-slate-500"> / {bk.totalCopies} Copies</span>
+        <div className="text-xs font-mono">
+          <span className="font-bold text-emerald-600 dark:text-emerald-400">{bk.availableCopies} avail</span>
+          <span className="text-slate-500 block">/ {bk.totalCopies} total</span>
         </div>
-      ),
-    },
-    {
-      header: 'Action',
-      cell: (bk) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.push(`/library/books/${bk.id}`)}
-          rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-        >
-          Accession Copies
-        </Button>
-      ),
-    },
-  ];
-
-  const circulationColumns: Column<CirculationIssue>[] = [
-    {
-      header: 'Book Title & Accession Copy',
-      accessorKey: 'bookTitle',
-      sortable: true,
-      cell: (iss) => (
-        <div>
-          <p className="font-bold text-slate-100">{iss.bookTitle}</p>
-          <span className="font-mono text-xs text-blue-400">Copy: {iss.accessionNo}</span>
-        </div>
-      ),
-    },
-    {
-      header: 'Borrower Student',
-      accessorKey: 'studentName',
-      sortable: true,
-      cell: (iss) => (
-        <div className="flex items-center gap-2">
-          <img
-            src={iss.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150'}
-            alt={iss.studentName}
-            className="w-7 h-7 rounded-full object-cover border border-slate-700 shrink-0"
-          />
-          <div>
-            <p className="font-semibold text-white text-xs">{iss.studentName}</p>
-            <span className="font-mono text-slate-400 text-[10px]">{iss.studentRegId}</span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      header: 'Loan Issue Date',
-      accessorKey: 'issuedAt',
-      sortable: true,
-      cell: (iss) => <span className="font-mono text-slate-400 text-xs">{formatDate(iss.issuedAt)}</span>,
-    },
-    {
-      header: 'Due Date',
-      accessorKey: 'dueDate',
-      sortable: true,
-      cell: (iss) => (
-        <span
-          className={`font-mono text-xs font-bold ${
-            iss.isOverdue ? 'text-rose-400' : 'text-slate-200'
-          }`}
-        >
-          {formatDate(iss.dueDate)}
-        </span>
-      ),
-    },
-    {
-      header: 'Loan Status',
-      cell: (iss) => (
-        <OverdueFineBadge
-          isOverdue={iss.isOverdue}
-          daysOverdue={iss.daysOverdue}
-          fineAmount={iss.fineAmount}
-        />
-      ),
-    },
-    {
-      header: 'Action',
-      cell: (iss) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setSelectedIssue(iss);
-            setIsReturnModalOpen(true);
-          }}
-          leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
-        >
-          Return Book
-        </Button>
       ),
     },
   ];
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in max-w-7xl mx-auto">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-white tracking-tight">
-              Library & Circulation Management
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              Library & Accession Circulation
             </h1>
-            <Badge variant="success" size="sm">
+            <Badge variant="primary" size="sm">
               <ShieldCheck className="w-3.5 h-3.5 mr-1" />
-              Accession Barcode Tracking
+              Dewey Decimal Catalog Active
             </Badge>
           </div>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Manage academic book titles, physical copy accession records, student loan circulation, and automated overdue fines.
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Institutional management for accession barcoding, circulation loan desk, and automated fine enforcement.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsBookModalOpen(true)}
-            leftIcon={<Plus className="w-4 h-4" />}
-          >
-            Catalog Book
-          </Button>
-
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setIsIssueModalOpen(true)}
-            leftIcon={<BookOpen className="w-4 h-4" />}
-          >
-            Issue Book Loan
-          </Button>
-        </div>
-      </div>
-
-      {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card hoverEffect className="p-5">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Catalog Titles
-          </span>
-          <h3 className="text-2xl font-black text-white mt-1">
-            {dashboard?.totalTitles.toLocaleString() || '1,240'}
-          </h3>
-          <p className="text-xs text-blue-400 mt-2 font-medium">Distinct Book Works</p>
-        </Card>
-
-        <Card hoverEffect className="p-5">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Total Physical Volumes
-          </span>
-          <h3 className="text-2xl font-black text-purple-400 mt-1">
-            {dashboard?.totalVolumes.toLocaleString() || '4,850'}
-          </h3>
-          <p className="text-xs text-purple-300 mt-2 font-medium">
-            {dashboard?.availableCopies.toLocaleString() || '4,120'} Available on Stacks
-          </p>
-        </Card>
-
-        <Card hoverEffect className="p-5">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Active Circulation Loans
-          </span>
-          <h3 className="text-2xl font-black text-emerald-400 mt-1">
-            {dashboard?.activeIssuesCount || 730}
-          </h3>
-          <p className="text-xs text-emerald-300 mt-2 font-medium">Currently Loaned Out</p>
-        </Card>
-
-        <Card hoverEffect className="p-5">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Overdue Loans (&gt;14d)
-          </span>
-          <h3 className="text-2xl font-black text-rose-400 mt-1">
-            {dashboard?.overdueIssuesCount || 18}
-          </h3>
-          <p className="text-xs text-rose-300 mt-2 font-medium">Fines Accruing</p>
-        </Card>
-      </div>
-
-      {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
-        {[
-          { id: 'catalog' as const, label: 'Book Titles Catalog', icon: Library, count: books.length },
-          { id: 'circulation' as const, label: 'Circulation & Active Loans', icon: BookCopy, count: issues.length },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-              }`}
+        <RoleGate roles={['SUPER_ADMIN', 'COLLEGE_ADMIN']}>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setIsIssueModalOpen(true)}
+              leftIcon={<RotateCcw className="w-4 h-4" />}
             >
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-              {tab.count !== undefined && (
-                <span
-                  className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+              Loan Desk (Issue)
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setIsBookModalOpen(true)}
+              leftIcon={<Plus className="w-4 h-4" />}
+            >
+              Add Book Title
+            </Button>
+          </div>
+        </RoleGate>
       </div>
 
-      {/* Tab Panels */}
+      {/* Main Catalog DataTable */}
+      <Card className="p-6 space-y-4">
+        <CardHeader className="pb-2">
+          <div>
+            <CardTitle className="text-lg">Accession Book Registry</CardTitle>
+            <CardDescription>Cataloged titles, copies inventory, and physical shelf coordinates</CardDescription>
+          </div>
+        </CardHeader>
 
-      {/* 1. CATALOG */}
-      {activeTab === 'catalog' && (
-        <Card className="p-6 space-y-4">
-          <CardHeader className="pb-2">
-            <div>
-              <CardTitle className="text-lg">Library Book Catalog & Accession Inventory</CardTitle>
-              <CardDescription>
-                Search catalog by title, author, subject category, or ISBN
-              </CardDescription>
-            </div>
-          </CardHeader>
-
-          <DataTable
-            columns={bookColumns}
-            data={books}
-            isLoading={isLoading}
-            searchPlaceholder="Search by title, author, or category..."
-            pageSize={10}
-            onRowClick={(bk) => router.push(`/library/books/${bk.id}`)}
-          />
-        </Card>
-      )}
-
-      {/* 2. CIRCULATION */}
-      {activeTab === 'circulation' && (
-        <Card className="p-6 space-y-4">
-          <CardHeader className="pb-2">
-            <div>
-              <CardTitle className="text-lg">Circulation Desk & Active Student Loans</CardTitle>
-              <CardDescription>
-                Active book loans, due date tracking, and overdue fine status
-              </CardDescription>
-            </div>
-          </CardHeader>
-
-          <DataTable
-            columns={circulationColumns}
-            data={issues}
-            isLoading={isLoading}
-            searchPlaceholder="Search by book title, accession number, or student..."
-            pageSize={10}
-          />
-        </Card>
-      )}
+        <DataTable
+          columns={bookColumns}
+          data={books}
+          isLoading={isLoading}
+          searchPlaceholder="Search catalog by title, author, or ISBN..."
+          pageSize={10}
+        />
+      </Card>
 
       {/* Modals */}
       <BookTitleModal
@@ -381,13 +358,6 @@ export default function LibraryPage() {
       <IssueBookModal
         isOpen={isIssueModalOpen}
         onClose={() => setIsIssueModalOpen(false)}
-        onSuccess={loadData}
-      />
-
-      <ReturnBookModal
-        isOpen={isReturnModalOpen}
-        onClose={() => setIsReturnModalOpen(false)}
-        issue={selectedIssue}
         onSuccess={loadData}
       />
     </div>

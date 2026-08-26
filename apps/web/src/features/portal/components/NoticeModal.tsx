@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
+import { TinyEditor } from '../../../components/ui/TinyEditor';
 import { useToast } from '../../../context/ToastContext';
 import { createNotice } from '../services/portal.api';
 import { CreateNoticeDto } from '../types/portal.types';
@@ -56,8 +57,8 @@ export const NoticeModal: React.FC<NoticeModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Post Institutional Circular / Notice"
-      description="Publish examination schedules, date sheets, holiday circulars, or clinical duty notices."
-      size="md"
+      description="Publish examination schedules, date sheets, holiday circulars, or clinical duty notices with TinyMCE rich formatting."
+      size="lg"
       footer={
         <>
           <Button variant="outline" size="sm" onClick={onClose} disabled={isLoading}>
@@ -79,16 +80,12 @@ export const NoticeModal: React.FC<NoticeModalProps> = ({
         />
 
         <div className="space-y-1">
-          <label className="text-xs font-bold text-slate-300 uppercase">
-            Notice Body / Circular Details *
-          </label>
-          <textarea
-            rows={4}
+          <TinyEditor
+            label="Notice Body / Circular Details *"
+            placeholder="Compose official circular details, timetable tables, bulleted policies, and notes..."
             value={form.content}
-            onChange={(e) => setForm({ ...form, content: e.target.value })}
-            placeholder="Official circular announcement details..."
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500"
-            required
+            onChange={(content) => setForm({ ...form, content })}
+            height={260}
           />
         </div>
 

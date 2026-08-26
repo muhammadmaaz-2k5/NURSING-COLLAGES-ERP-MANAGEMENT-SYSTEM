@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Loader2,
-  Shield,
   Check,
   Lock,
 } from 'lucide-react';
@@ -13,7 +12,7 @@ import { Button } from '../../../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription } from '../../../../components/ui/Card';
 import { Badge } from '../../../../components/ui/Badge';
 import { PermissionMatrix } from '../../../../features/settings/components/PermissionMatrix';
-import { fetchRoleById } from '../../../../features/settings/services/settings.api';
+import { fetchRoleById, assignPermissionsToRole } from '../../../../features/settings/services/settings.api';
 import { SystemRole } from '../../../../features/settings/types/settings.types';
 import { useToast } from '../../../../context/ToastContext';
 
@@ -25,6 +24,8 @@ export default function RoleDetailPage() {
 
   const [role, setRole] = useState<SystemRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentPermissions, setCurrentPermissions] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function load() {
@@ -42,8 +43,20 @@ export default function RoleDetailPage() {
     load();
   }, [roleId]);
 
-  const handleSave = () => {
-    toast.success('Permissions Updated', `RBAC matrix saved for role ${role?.name}.`);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const permissionCodes = Object.entries(currentPermissions)
+        .filter(([_, isAllowed]) => isAllowed)
+        .map(([code]) => code);
+
+      await assignPermissionsToRole(roleId, permissionCodes);
+      toast.success('Permissions Updated', `RBAC matrix saved for role ${role?.name}.`);
+    } catch (err: any) {
+      toast.error('Save Failed', err?.message || 'Unable to update role permissions');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading) {
@@ -78,13 +91,19 @@ export default function RoleDetailPage() {
           Back to Roles Directory
         </Button>
 
-        <Button variant="primary" size="sm" onClick={handleSave} leftIcon={<Check className="w-4 h-4" />}>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleSave}
+          isLoading={isSaving}
+          leftIcon={<Check className="w-4 h-4" />}
+        >
           Save Permission Matrix
         </Button>
       </div>
 
       {/* Role Header */}
-      <div className="p-6 lg:p-8 rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-2xl shadow-2xl space-y-3">
+      <div className="p-6 lg:p-8 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div className="flex items-center gap-2">
           <Badge variant="purple" size="sm">
             {role.name}
@@ -95,8 +114,8 @@ export default function RoleDetailPage() {
             </Badge>
           )}
         </div>
-        <h1 className="text-2xl font-black text-white">{role.name}</h1>
-        <p className="text-xs text-slate-400 max-w-2xl">{role.description}</p>
+        <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100">{role.name}</h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl">{role.description}</p>
       </div>
 
       {/* Interactive Permission Matrix */}
@@ -110,7 +129,10 @@ export default function RoleDetailPage() {
           </div>
         </CardHeader>
 
-        <PermissionMatrix isReadOnly={role.name === 'SUPER_ADMIN'} />
+        <PermissionMatrix
+          isReadOnly={role.name === 'SUPER_ADMIN'}
+          onChange={setCurrentPermissions}
+        />
       </Card>
     </div>
   );

@@ -5,6 +5,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Button } from '../../../components/ui/Button';
+import { TinyEditor } from '../../../components/ui/TinyEditor';
 import { useToast } from '../../../context/ToastContext';
 import { createNews } from '../services/portal.api';
 import { CreateNewsDto, ContentStatus } from '../types/portal.types';
@@ -67,8 +68,8 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Publish News Article / Press Release"
-      description="Create public news content, event summaries, and official college announcements."
-      size="lg"
+      description="Create public news content, event summaries, and official college announcements with TinyMCE rich text editor."
+      size="xl"
       footer={
         <>
           <Button variant="outline" size="sm" onClick={onClose} disabled={isLoading}>
@@ -125,16 +126,12 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
         />
 
         <div className="space-y-1">
-          <label className="text-xs font-bold text-slate-300 uppercase">
-            Article Body Content (HTML / Markdown) *
-          </label>
-          <textarea
-            rows={5}
+          <TinyEditor
+            label="Article Body Content (Rich Text) *"
+            placeholder="Compose rich article content with headings, images, quotes, and links..."
             value={form.content}
-            onChange={(e) => setForm({ ...form, content: e.target.value })}
-            placeholder="<p>Full article body text and details...</p>"
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500"
-            required
+            onChange={(content) => setForm({ ...form, content })}
+            height={320}
           />
         </div>
       </form>

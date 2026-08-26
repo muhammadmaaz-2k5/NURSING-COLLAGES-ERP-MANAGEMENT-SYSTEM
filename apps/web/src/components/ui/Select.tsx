@@ -20,7 +20,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full flex flex-col gap-1.5">
         {label && (
-          <label htmlFor={selectId} className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+          <label htmlFor={selectId} className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
             {label}
           </label>
         )}
@@ -29,7 +29,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             id={selectId}
             ref={ref}
             className={cn(
-              'w-full bg-slate-900/70 text-slate-100 text-sm rounded-xl border border-slate-700/80 px-4 py-2.5 transition-all duration-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 backdrop-blur-sm appearance-none cursor-pointer',
+              'w-full bg-white dark:bg-slate-900/70 text-slate-900 dark:text-slate-100 text-sm rounded-xl border border-slate-300 dark:border-slate-700/80 px-4 py-2.5 transition-all duration-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 backdrop-blur-sm appearance-none cursor-pointer shadow-xs dark:shadow-none',
               error ? 'border-rose-500 focus:border-rose-500' : '',
               className,
             )}
@@ -37,7 +37,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           >
             {children ||
               options.map((opt) => (
-                <option key={opt.value} value={opt.value} className="bg-slate-900 text-slate-100">
+                <option key={opt.value} value={opt.value} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
                   {opt.label}
                 </option>
               ))}
@@ -48,8 +48,8 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             </svg>
           </div>
         </div>
-        {error && <span className="text-xs text-rose-400 font-medium">{error}</span>}
-        {!error && helperText && <span className="text-xs text-slate-500">{helperText}</span>}
+        {error && <span className="text-xs text-rose-500 dark:text-rose-400 font-medium">{error}</span>}
+        {!error && helperText && <span className="text-xs text-slate-500 dark:text-slate-400">{helperText}</span>}
       </div>
     );
   },

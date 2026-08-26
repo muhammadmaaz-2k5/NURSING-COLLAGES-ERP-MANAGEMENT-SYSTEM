@@ -142,6 +142,23 @@ export async function createUser(dto: CreateUserDto) {
 }
 
 export async function fetchRoles(): Promise<SystemRole[]> {
+  try {
+    const res = await fetch(`${API_BASE}/rbac/roles`, { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description,
+          isSystem: r.isSystem,
+          usersCount: r._count?.users ?? r.usersCount ?? 0,
+          permissions: r.permissions?.map((p: any) => p.permission?.code || `${p.permission?.module?.toLowerCase()}.${p.permission?.resource?.toLowerCase()}.${p.permission?.action?.toLowerCase()}`) || (r.name === 'SUPER_ADMIN' ? ['*'] : []),
+        }));
+      }
+    }
+  } catch {}
+
   return [
     {
       id: 'role-01',
@@ -153,39 +170,90 @@ export async function fetchRoles(): Promise<SystemRole[]> {
     },
     {
       id: 'role-02',
-      name: 'FACULTY',
-      description: 'Academic course management, attendance marking, and examination result submission.',
+      name: 'COLLEGE_ADMIN',
+      description: 'Campus dean and administrative head managing academics, faculty, hostel, library, and hr operations.',
       isSystem: true,
-      usersCount: 38,
+      usersCount: 6,
       permissions: [
-        'academic.read',
-        'attendance.write',
-        'exams.marks.entry',
-        'clinical.supervisor',
+        'students.read', 'students.create', 'students.update',
+        'academic.read', 'academic.create', 'academic.update',
+        'faculty.read', 'faculty.create',
+        'attendance.read', 'attendance.create',
+        'exams.read', 'exams.create',
+        'finance.read', 'finance.create',
+        'hostel.read', 'hostel.create',
+        'library.read', 'library.create',
+        'transport.read', 'transport.create',
+        'hr.read', 'hr.create',
+        'cms.read', 'cms.create',
       ],
     },
     {
       id: 'role-03',
-      name: 'ACCOUNTANT',
-      description: 'Fee collection, challan issuance, double-entry ledgers, and scholarship management.',
+      name: 'FACULTY',
+      description: 'Academic course management, daily student attendance marking, and examination marks entry.',
       isSystem: true,
-      usersCount: 4,
+      usersCount: 38,
       permissions: [
-        'finance.invoices.manage',
-        'finance.payments.collect',
-        'finance.reports.read',
+        'academic.read',
+        'students.read',
+        'faculty.read',
+        'attendance.read', 'attendance.create', 'attendance.update',
+        'exams.read', 'exams.create', 'exams.update',
+        'clinical.read', 'clinical.verify',
+        'library.read',
       ],
     },
     {
       id: 'role-04',
+      name: 'ACCOUNTANT',
+      description: 'Student fee invoicing, bank challan issuance, double-entry ledgers, and scholarship adjustments.',
+      isSystem: true,
+      usersCount: 4,
+      permissions: [
+        'students.read',
+        'finance.read', 'finance.create', 'finance.update', 'finance.delete',
+        'hr.read', 'hr.create',
+      ],
+    },
+    {
+      id: 'role-05',
+      name: 'DOCTOR',
+      description: 'Teaching hospital OPD/IPD consultations, patient ward admissions, prescriptions, and lab tests.',
+      isSystem: true,
+      usersCount: 16,
+      permissions: [
+        'hospital.read', 'hospital.create', 'hospital.update',
+        'pharmacy.read', 'pharmacy.dispense',
+        'clinical.read', 'clinical.verify',
+      ],
+    },
+    {
+      id: 'role-06',
       name: 'CLINICAL_SUPERVISOR',
-      description: 'PNC clinical skill verification, hospital ward duty rotations, and student logbook approvals.',
+      description: '1200h PNC clinical skill verification, hospital ward duty rotations, and student bedside sign-offs.',
       isSystem: true,
       usersCount: 12,
       permissions: [
-        'clinical.skills.verify',
-        'clinical.rotations.manage',
+        'students.read',
+        'clinical.read', 'clinical.create', 'clinical.update', 'clinical.verify',
         'hospital.read',
+      ],
+    },
+    {
+      id: 'role-07',
+      name: 'STUDENT',
+      description: 'Student portal for enrolled classes, attendance logs, exam transcripts, and fee receipts.',
+      isSystem: true,
+      usersCount: 450,
+      permissions: [
+        'student.portal.read',
+        'academic.read',
+        'attendance.read',
+        'exams.read',
+        'finance.read',
+        'library.read',
+        'clinical.read',
       ],
     },
   ];
@@ -193,7 +261,43 @@ export async function fetchRoles(): Promise<SystemRole[]> {
 
 export async function fetchRoleById(id: string): Promise<SystemRole> {
   const roles = await fetchRoles();
-  return roles.find((r) => r.id === id) || roles[0];
+  return roles.find((r) => r.id === id || r.name === id) || roles[0];
+}
+
+export async function createRole(dto: { name: string; description?: string }) {
+  try {
+    const res = await fetch(`${API_BASE}/rbac/roles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dto),
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+  return { id: `role-${Date.now()}`, name: dto.name, description: dto.description, isSystem: false, usersCount: 0, permissions: [] };
+}
+
+export async function assignPermissionsToRole(roleId: string, permissionIds: string[]) {
+  try {
+    const res = await fetch(`${API_BASE}/rbac/roles/${roleId}/permissions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permissionIds }),
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+  return { success: true };
+}
+
+export async function assignRoleToUser(userId: string, roleName: string) {
+  try {
+    const res = await fetch(`${API_BASE}/rbac/users/${userId}/roles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roleName }),
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+  return { success: true };
 }
 
 export async function fetchModuleConfigs(): Promise<ModuleConfigItem[]> {

@@ -2,17 +2,22 @@
   "name": "pern-monolith",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "npm@11.17.0",
   "description": "Multi-College ERP & SaaS Monolith with NestJS, Next.js, and Prisma ORM",
   "workspaces": [
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
-    "dev:api": "npm run --workspace=apps/api start:dev",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean",
+    "dev:api": "npm run --workspace=apps/api dev",
     "dev:web": "npm run --workspace=apps/web dev",
-    "build": "npm run build:api && npm run build:web",
+    "dev:ws": "npm run --workspace=apps/ws dev",
     "build:api": "npm run --workspace=apps/api build",
     "build:web": "npm run --workspace=apps/web build",
+    "build:ws": "npm run --workspace=apps/ws build",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "prisma:migrate": "prisma migrate dev",
@@ -26,15 +31,13 @@
     "drill:redis": "ts-node -P tsconfig.base.json scripts/drills/redis-resilience.ts",
     "prisma:studio": "prisma studio",
     "lint": "npm run --workspace=apps/api lint && npm run --workspace=apps/web lint"
-
-
-
   },
   "devDependencies": {
     "@types/node": "^22.13.5",
     "concurrently": "^9.1.2",
     "prisma": "^6.4.1",
     "ts-node": "^10.9.2",
+    "turbo": "^2.10.12",
     "typescript": "^5.7.3"
   },
   "dependencies": {
